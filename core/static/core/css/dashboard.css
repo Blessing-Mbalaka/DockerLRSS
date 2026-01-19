@@ -11,70 +11,7 @@ body {
   min-height: 100vh;
 }
 
-/* SIDEBAR */
-.sidebar {
-  width: 250px;
-  background: linear-gradient(to bottom, #f1f1f1, #ffffff, #a0a0a0, #f0efef, #5b3c83);
-  padding: 20px 15px;
-  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
-  border-right: 1px solid #8f6620;
-  position: relative;
-  z-index: 10;
-}
 
-.sidebar-nav {
-  list-style: none;
-  padding: 0;
-  margin: 20px 0;
-}
-
-.nav-item {
-  display: flex;
-  align-items: center;
-  padding: 10px 15px;
-  margin: 8px 0;
-  border-radius: 8px;
-  color: var(--dark-purple);
-  text-decoration: none;
-  transition: all 0.3s ease;
-}
-
-.nav-item i {
-  margin-right: 10px;
-  font-size: 16px;
-}
-
-.nav-item:hover {
-  background-color: rgba(143, 102, 32, 0.2);
-}
-
-.nav-item.active {
-  background-color: var(--dark-purple);
-  color: white;
-}
-
-.sidebar-footer {
-  position: absolute;
-  bottom: 20px;
-  left: 15px;
-  right: 15px;
-}
-
-.sidebar-footer img {
-  width: 100%;
-  margin-bottom: 15px;
-}
-
-/* SIDEBAR ICON IMAGE */
-.graduate-icon {
-  text-align: center;
-  margin-bottom: 20px;
-}
-
-.graduate-icon img {
-  width: 130px;
-  transition: all 0.3s ease;
-}
 
 /* CONTENT */
 .content {
@@ -205,15 +142,8 @@ body {
   .dashboard-container {
     flex-direction: column;
   }
-  .sidebar {
-    width: 100%;
-    height: auto;
-  }
   .content {
     padding: 15px;
-  }
-  .welcome-image {
-    display: none;
   }
 }
 
@@ -333,16 +263,7 @@ body {
   margin-top: 0;
   padding-top: 0;
 }
-/* Remove underlines on sidebar nav links */
-.sidebar-nav .nav-link {
-  text-decoration: none;
-}
 
-/* Make sure hovering or focusing also doesn’t re-underline */
-.sidebar-nav .nav-link:hover,
-.sidebar-nav .nav-link:focus {
-  text-decoration: none;
-}
 /* ===========================
    Submitted / Upload Table
    (same style as dashboard table)

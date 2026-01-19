@@ -1,4 +1,5 @@
 {% load static %}
+
 <div class="sidebar">
     <div class="graduate-icon">
         <img src="{% static 'core/images/logo_simplebbbbbbbbbbbbbb.png' %}" alt="CHIETA Logo" style="width: 130px;">
@@ -7,35 +8,42 @@
     <ul>
         <li class="nav-item">
             <a href="{% url 'admin_dashboard' %}"
-                class="nav-link{% if request.resolver_match.url_name == 'admin_dashboard' %} active{% endif %}">
-                <i class="fas fa-home me-2"></i>Dashboard
+                class="nav-link{% if request.resolver_match.url_name == 'admin_dashboard' %} active{% endif %}"
+                style="color: inherit; text-decoration: none;">
+                <i class="fa fa-home me-2"></i>Dashboard
             </a>
         </li>
+
         <li class="nav-item">
             <a href="{% url 'assessment_centres' %}"
-                class="nav-link{% if request.resolver_match.url_name == 'assessment_centres' %} active{% endif %}">
-                <i class="fas fa-upload me-2"></i>Assessment Centres
+                class="nav-link{% if request.resolver_match.url_name == 'assessment_centres' %} active{% endif %}"
+                style="color: inherit; text-decoration: none;">
+                <i class="fa fa-upload me-2"></i>Assessment Centres
             </a>
         </li>
+
         <li class="nav-item">
             <a href="{% url 'user_management' %}"
-                class="nav-link{% if request.resolver_match.url_name == 'user_management' %} active{% endif %}">
-                <i class="fas fa-cogs me-2"></i>User Management
+                class="nav-link{% if request.resolver_match.url_name == 'user_management' %} active{% endif %}"
+                style="color: inherit; text-decoration: none;">
+                <i class="fa fa-cogs me-2"></i>User Management
             </a>
         </li>
+
         <li class="nav-item">
             <a href="{% url 'manage_qualifications' %}"
-                class="nav-link{% if request.resolver_match.url_name == 'manage_qualifications' %} active{% endif %}">
-                <i class="fas fa-graduation-cap me-2"></i>Qualifications
+                class="nav-link{% if request.resolver_match.url_name == 'manage_qualifications' %} active{% endif %}"
+                style="color: inherit; text-decoration: none;">
+                <i class="fa fa-book me-2"></i>Qualifications
             </a>
         </li>
+
         <li class="nav-item">
             <a href="{% url 'administrator_dashboards' %}"
                 class="nav-link{% if request.resolver_match.url_name == 'administrator_dashboards' %} active{% endif %}">
                 <i class="fas fa-chart-line me-2"></i>Analytics
             </a>
         </li>
-  
         <li class="nav-item">
             <a href="{% url 'administrator_paperbank' %}"
                 class="nav-link{% if request.resolver_match.url_name == 'administrator_paperbank' %} active{% endif %}">
@@ -43,16 +51,16 @@
             </a>
         </li>
 
-             <li class="nav-item">
-                    <a href="{% url 'qdd_developer_dashboard' %}"
-                        class="nav-link{% if request.resolver_match.url_name == 'qdd_developer_dashboard' %} active{% endif %}"
-                        style="color: inherit; text-decoration: none;">
-                        <i class="fas fa-clipboard-check me-2"></i>QDD Review
-                    </a>
-                </li>
-                
+        <li class="nav-item">
+            <a href="{% url 'qdd_developer_dashboard' %}"
+                class="nav-link{% if request.resolver_match.url_name == 'qdd_developer_dashboard' %} active{% endif %}"
+                style="color: inherit; text-decoration: none;">
+                <i class="fas fa-clipboard-check me-2"></i>QDD Review
+            </a>
+        </li>
+
         <button class="gradient-button w-100 py-0">
-            <a href="{% url 'logout' %}" class="fix">Log Out</a>
+            <a href="{% url 'logout' %}" class="fix"> Log Out</a>
         </button>
     </ul>
     <img src="{% static 'core/images/rb_2149331949.png' %}" alt="" width="199px">

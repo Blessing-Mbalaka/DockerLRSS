@@ -3,15 +3,16 @@
 @layer tokens {
   :root {
     /* Theme: Admin/Assessor (purple/gold) */
-    --dark-purple: #3d0b56;
-    --darker-purple: #360459;
-    --mid-purple: #552a74;
-    --light-purple: #734e94;
+    --dark-purple: #3a063a;
+    --darker-purple: #280427;
+    --mid-purple: #580658;
+    --light-purple: #580658;
 
-    --gold: #a67c00;
-    --golden-brown: #8c6e0b;
-    --light-gold: #b68f40;
-    --deep-brown: #7a5303;
+    --gold: #8f6620;
+    --golden-brown: #7a5303;
+    --light-gold: #a67c00;
+    --deep-brown: #6a4a1a;
+    --secondary-purple: #580658;
 
     --bg: #f8f9fa;
     --surface: #ffffff;
