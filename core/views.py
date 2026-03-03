@@ -450,17 +450,6 @@ def update_user_role(request, user_id):
 # ______________________________________________________________________________________________________
 
 
-# @login_required
-# # @staff_member_required
-# def update_user_role(request, user_id):
-#     user = get_object_or_404(CustomUser, pk=user_id)
-#     if request.method == "POST":
-#         user.role = request.POST["role"]
-#         user.save()
-#         messages.success(request, f"Role updated for {user.get_full_name()}.")
-#     return redirect("user_management")
-
-
 # _______________________________________________________________________________________________________
 # _______________________________________________________________________________________________________
 # User qualification
@@ -1105,83 +1094,6 @@ def databank_view(request):
         },
     )
 
-
-# -------------------------------------------
-# 1) Add a new question to the Question Bank
-# ---------------------------------------
-
-
-@csrf_exempt
-def add_question(request):
-    if request.method == "POST":
-        q_type = request.POST.get("question_type")
-        qualification_id = request.POST.get("qualification")
-        marks = request.POST.get("marks")
-        text = request.POST.get("text")
-
-        # Fetch qualification object
-        try:
-            qualification = get_object_or_404(Qualification, pk=qualification_id)
-        except ValueError:
-            messages.error(request, "Invalid qualification selected.")
-            return redirect("databank")
-
-        # Prepare case study if needed
-        case_study_id = request.POST.get("case_study")
-        case_study = None
-        if q_type == "case_study" and case_study_id:
-            try:
-                case_study = CaseStudy.objects.get(id=case_study_id)
-            except CaseStudy.DoesNotExist:
-                messages.error(request, "Selected case study not found.")
-                return redirect("assessor_developer")
-
-        # Basic validation
-        if not text or not marks:
-            messages.error(request, "Please fill in all required fields.")
-            return redirect("assessor_developer")
-
-        # Create the question
-        question = QuestionBankEntry.objects.create(
-            qualification=qualification,
-            question_type=q_type,
-            text=text,
-            marks=int(marks),
-            case_study=case_study,
-        )
-
-        # Handle MCQ options
-        if q_type == "mcq":
-            has_correct = False
-            for i in range(1, 5):
-                opt_text = request.POST.get(f"opt_text_{i}")
-                is_correct = request.POST.get(f"opt_correct_{i}") == "on"
-                if opt_text:
-                    MCQOption.objects.create(
-                        question=question, text=opt_text, is_correct=is_correct
-                    )
-                    if is_correct:
-                        has_correct = True
-            if not has_correct:
-                question.delete()
-                messages.error(
-                    request, "At least one MCQ option must be marked as correct."
-                )
-                return redirect("assessor_developer")
-
-        messages.success(request, "Question added to the databank.")
-        return redirect("databank")
-
-
-@csrf_exempt
-def add_case_study(request):
-    if request.method == "POST":
-        title = request.POST.get("cs_title")
-        content = request.POST.get("cs_content")
-        if title and content:
-            CaseStudy.objects.create(title=title, content=content)
-            messages.success(request, "Case study added successfully.")
-    return redirect("databank")
 
 
 ############################################################################################
@@ -5633,11 +5545,6 @@ def assessment_center_view(request):
     )
 
 
-# @login_required
-# def assessor_maker_dashboard(request):
-#     return render(request, "core/assessor/marker_analytics.html")
-
-# views.py in Marker app
 
 
 @login_required
@@ -5712,7 +5619,6 @@ def student_registration(request, paper_id):
     )
 
 
-# views.py
 
 
 @login_required
@@ -6672,3 +6578,75 @@ def qdd_moderate_assessment(request, eisa_id):
 
 
 ######new views####################################################################################
+
+@csrf_exempt
+def add_question(request):
+    if request.method == "POST":
+        q_type = request.POST.get("question_type")
+        qualification_id = request.POST.get("qualification")
+        marks = request.POST.get("marks")
+        text = request.POST.get("text")
+
+        # Fetch qualification object
+        try:
+            qualification = get_object_or_404(Qualification, pk=qualification_id)
+        except ValueError:
+            messages.error(request, "Invalid qualification selected.")
+            return redirect("databank")
+
+        # Prepare case study if needed
+        case_study_id = request.POST.get("case_study")
+        case_study = None
+        if q_type == "case_study" and case_study_id:
+            try:
+                case_study = CaseStudy.objects.get(id=case_study_id)
+            except CaseStudy.DoesNotExist:
+                messages.error(request, "Selected case study not found.")
+                return redirect("assessor_developer")
+
+        # Basic validation
+        if not text or not marks:
+            messages.error(request, "Please fill in all required fields.")
+            return redirect("assessor_developer")
+
+        # Create the question
+        question = QuestionBankEntry.objects.create(
+            qualification=qualification,
+            question_type=q_type,
+            text=text,
+            marks=int(marks),
+            case_study=case_study,
+        )
+
+        # Handle MCQ options
+        if q_type == "mcq":
+            has_correct = False
+            for i in range(1, 5):
+                opt_text = request.POST.get(f"opt_text_{i}")
+                is_correct = request.POST.get(f"opt_correct_{i}") == "on"
+                if opt_text:
+                    MCQOption.objects.create(
+                        question=question, text=opt_text, is_correct=is_correct
+                    )
+                    if is_correct:
+                        has_correct = True
+            if not has_correct:
+                question.delete()
+                messages.error(
+                    request, "At least one MCQ option must be marked as correct."
+                )
+                return redirect("assessor_developer")
+
+        messages.success(request, "Question added to the databank.")
+        return redirect("databank")
+
+
+@csrf_exempt
+def add_case_study(request):
+    if request.method == "POST":
+        title = request.POST.get("cs_title")
+        content = request.POST.get("cs_content")
+        if title and content:
+            CaseStudy.objects.create(title=title, content=content)
+            messages.success(request, "Case study added successfully.")
+    return redirect("databank")
