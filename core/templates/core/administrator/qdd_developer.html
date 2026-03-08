@@ -370,6 +370,96 @@
             color: white;
         }
 
+        /* Custom file input styling */
+        .file-input-wrapper {
+            position: relative;
+            display: inline-block;
+            width: 100%;
+        }
+
+        .file-input-wrapper input[type="file"] {
+            position: absolute;
+            left: -9999px;
+            top: -9999px;
+        }
+
+        .file-input-label {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 8px 12px;
+            background-color: #3a063a;
+            color: white;
+            border: 1px solid #3a063a;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            gap: 8px;
+        }
+
+        .file-input-label:hover {
+            background-color: #8f6620;
+            border-color: #8f6620;
+            transform: translateY(-1px);
+        }
+
+        .file-input-label.file-selected {
+            background-color: #28a745;
+            border-color: #28a745;
+        }
+
+        .file-name-display {
+            font-size: 12px;
+            color: #666;
+            margin-top: 4px;
+        }
+
+        /* Toast styling */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+        }
+
+        .custom-toast {
+            background: white;
+            border-left: 4px solid #3a063a;
+            padding: 12px 20px;
+            border-radius: 4px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            margin-bottom: 10px;
+            min-width: 300px;
+            animation: slideIn 0.3s ease;
+        }
+
+        .custom-toast.success {
+            border-left-color: #28a745;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(400px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        @keyframes slideOut {
+            from {
+                opacity: 1;
+                transform: translateX(0);
+            }
+            to {
+                opacity: 0;
+                transform: translateX(400px);
+            }
+        }
+
         /* Modal styling */
         .modal-header {
             background: linear-gradient(to right, #3a063a, #580658);
@@ -771,6 +861,9 @@
         </div>
     </div>
 
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
     <!-- Celebration Animation Container -->
     <div class="confetti-container" id="confettiContainer"></div>
 
@@ -872,6 +965,68 @@
                     confetti.remove();
                 };
             }
+
+            // Toast notification function
+            function showToast(message) {
+                const toastContainer = document.getElementById('toastContainer');
+                const toast = document.createElement('div');
+                toast.className = 'custom-toast success';
+                toast.innerHTML = `
+                    <strong><i class="fas fa-check-circle me-2"></i>Success</strong>
+                    <p class="mb-0" style="margin-top: 4px;">${message}</p>
+                `;
+                toastContainer.appendChild(toast);
+
+                // Auto-remove toast after 3 seconds
+                setTimeout(() => {
+                    toast.style.animation = 'slideOut 0.3s ease';
+                    setTimeout(() => {
+                        toast.remove();
+                    }, 300);
+                }, 3000);
+            }
+
+            // File input handling for QDD reports
+            document.addEventListener('change', function(e) {
+                if (e.target && e.target.classList.contains('qdd-report-input')) {
+                    const input = e.target;
+                    console.log('File input changed:', input.id);
+                    
+                    if (input.files && input.files[0]) {
+                        const fileName = input.files[0].name;
+                        const fileSize = (input.files[0].size / 1024).toFixed(2); // Size in KB
+                        const assessmentId = input.id.replace('file-', '');
+                        
+                        console.log('File selected:', fileName, 'Assessment ID:', assessmentId);
+                        
+                        // Get the corresponding label and display elements
+                        const label = input.nextElementSibling;
+                        const fileNameDisplay = document.getElementById(`filename-${assessmentId}`);
+                        
+                        console.log('Label found:', !!label, 'Display element found:', !!fileNameDisplay);
+                        
+                        // Update label styling to show file selected
+                        if (label && label.classList.contains('file-input-label')) {
+                            label.classList.add('file-selected');
+                            label.innerHTML = `
+                                <i class="fas fa-file-word"></i>
+                                <span class="upload-text">${fileName}</span>
+                            `;
+                            console.log('Label updated to green:', label.className);
+                        }
+                        
+                        // Show file name and size
+                        if (fileNameDisplay) {
+                            fileNameDisplay.innerHTML = `<i class="fas fa-check text-success me-1"></i>${fileName} (${fileSize} KB)`;
+                            console.log('File display updated');
+                        }
+                        
+                        // Show toast notification
+                        console.log('Calling showToast function');
+                        showToast('Report selected successfully!');
+                    }
+                }
+            }, true);
         });
     </script>
 </body>

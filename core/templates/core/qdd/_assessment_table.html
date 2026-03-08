@@ -81,10 +81,17 @@
                                 enctype="multipart/form-data"
                                 class="d-flex flex-column flex-lg-row gap-2 moderation-inline-form">
                                 {% csrf_token %}
-                                <input type="file" name="moderator_report"
-                                    accept=".doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                                    class="form-control form-control-sm"
-                                    title="{% if role == 'qdd' %}Optional QDD review report{% else %}Moderator review report{% endif %}">
+                                <div class="file-input-wrapper" style="flex: 1;">
+                                    <input type="file" name="moderator_report"
+                                        id="file-{{ asmt.id }}"
+                                        accept=".doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                                        class="qdd-report-input" required>
+                                    <label for="file-{{ asmt.id }}" class="file-input-label">
+                                        <i class="fas fa-upload"></i>
+                                        <span class="upload-text">Upload Report</span>
+                                    </label>
+                                    <div class="file-name-display" id="filename-{{ asmt.id }}"></div>
+                                </div>
                                 <div class="d-flex gap-2">
                                     <button type="submit" name="action" value="approve"
                                         class="btn btn-sm btn-success text-nowrap">

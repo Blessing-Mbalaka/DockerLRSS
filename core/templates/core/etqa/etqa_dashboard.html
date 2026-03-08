@@ -392,6 +392,51 @@
             box-shadow: 0 0 0 2px rgba(143, 102, 32, 0.2);
         }
 
+        /* Toast styling */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+        }
+
+        .custom-toast {
+            background: white;
+            border-left: 4px solid #3a063a;
+            padding: 12px 20px;
+            border-radius: 4px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            margin-bottom: 10px;
+            min-width: 300px;
+            animation: slideIn 0.3s ease;
+        }
+
+        .custom-toast.success {
+            border-left-color: #28a745;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(400px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        @keyframes slideOut {
+            from {
+                opacity: 1;
+                transform: translateX(0);
+            }
+            to {
+                opacity: 0;
+                transform: translateX(400px);
+            }
+        }
+
         /* Responsive Design */
         @media (max-width: 1200px) {
             .content {
@@ -601,9 +646,10 @@
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label for="center">Assessment Centre:</label>
-                                <select id="center" name="center" class="form-select" required>
+                                <select id="center" name="center" class="form-select" required onchange="autoSelectQualification()">
+                                    <option value="">Select Assessment Centre</option>
                                     {% for center in centers %}
-                                    <option value="{{ center.id }}">{{ center.name }}</option>
+                                    <option value="{{ center.id }}" data-qualification-id="{{ center.qualification_assigned.id }}">{{ center.name }}</option>
                                     {% endfor %}
                                 </select>
                             </div>
@@ -690,11 +736,79 @@
         </div>
     </div>
 
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        function loadAssessments() {
-            const qualificationId = document.getElementById('qualification').value;
-            window.location.href = qualificationId ? `?qualification_id=${qualificationId}` : window.location.pathname;
+        // Restore center and qualification selections from URL on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const centerId = urlParams.get('center_id');
+            const qualificationId = urlParams.get('qualification_id');
+            
+            if (centerId) {
+                const centerSelect = document.getElementById('center');
+                centerSelect.value = centerId;
+            }
+            
+            if (qualificationId) {
+                const qualificationSelect = document.getElementById('qualification');
+                qualificationSelect.value = qualificationId;
+            }
+        });
+
+        // Toast notification function
+        function showToast(message) {
+            const toastContainer = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = 'custom-toast success';
+            toast.innerHTML = `
+                <strong><i class="fas fa-check-circle me-2"></i>Success</strong>
+                <p class="mb-0" style="margin-top: 4px;">${message}</p>
+            `;
+            toastContainer.appendChild(toast);
+
+            // Auto-remove toast after 3 seconds
+            setTimeout(() => {
+                toast.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => {
+                    toast.remove();
+                }, 300);
+            }, 3000);
+        }
+
+        // Auto-select qualification based on selected assessment centre
+        function autoSelectQualification() {
+            const centerSelect = document.getElementById('center');
+            const qualificationSelect = document.getElementById('qualification');
+            
+            const selectedCenterId = centerSelect.value;
+            const selectedOption = centerSelect.options[centerSelect.selectedIndex];
+            const qualificationId = selectedOption.getAttribute('data-qualification-id');
+            const centerName = selectedOption.text;
+            
+            if (qualificationId) {
+                // Set the qualification dropdown to the center's assigned qualification
+                qualificationSelect.value = qualificationId;
+                // Show toast notification
+                showToast(`Assessment Centre: ${centerName} - Qualification auto-selected!`);
+                // Wait a moment then load assessments with both center and qualification
+                setTimeout(() => {
+                    loadAssessments(qualificationId, selectedCenterId);
+                }, 1500);
+            }
+        }
+
+        function loadAssessments(qualificationId, centerId) {
+            if (!qualificationId) {
+                qualificationId = document.getElementById('qualification').value;
+            }
+            if (!centerId) {
+                centerId = document.getElementById('center').value;
+            }
+            const url = qualificationId ? `?qualification_id=${qualificationId}&center_id=${centerId}` : window.location.pathname;
+            window.location.href = url;
         }
     </script>
 </body>

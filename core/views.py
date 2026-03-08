@@ -1419,11 +1419,28 @@ def assessor_pool_data(request):
     user = request.user
     user_role = getattr(user, "role", "")
     user_qualification = getattr(user, "qualification", None)
+    
+    # Determine if we need to restrict data to user's qualification
+    # Only actual Django staff/superuser OR explicitly marked admin should see all pools
+    # Regular users (including those with default role) should be restricted to their qualification
+    is_privileged_user = user.is_superuser or (user.is_staff and user_role == "admin")
     restrict_to_qualification = None
-    if user_qualification and not (
-        user.is_superuser or user.is_staff or user_role in {"admin", "moderator"}
-    ):
+    
+    if not is_privileged_user and user_qualification:
+        # Non-privileged users can only see pools for their qualification
         restrict_to_qualification = user_qualification
+    
+    # DEBUG LOGGING
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"=== Pool Data Request ===")
+    logger.info(f"User: {user.username}")
+    logger.info(f"User Role: {user_role}")
+    logger.info(f"User is_staff: {user.is_staff}")
+    logger.info(f"User is_superuser: {user.is_superuser}")
+    logger.info(f"User Qualification: {user_qualification}")
+    logger.info(f"Is Privileged: {is_privileged_user}")
+    logger.info(f"Restrict to Qualification: {restrict_to_qualification}")
 
     def normalize_letter(raw: str | None) -> str:
         raw = (raw or "").strip()
@@ -1476,10 +1493,16 @@ def assessor_pool_data(request):
         .exclude(paper__module_name="")
     )
 
+    # Apply qualification filter: Non-privileged users only see their qualification's pools
     if restrict_to_qualification:
+        # Filter by matching the qualification
+        # Two approaches: 1) Direct assessment link, 2) Module name matching
+        from django.db.models import Q
         boxes_qs = boxes_qs.filter(
-            paper__assessment_record__qualification=restrict_to_qualification
+            Q(paper__assessment_record__qualification=restrict_to_qualification) |
+            Q(paper__module_name__iexact=restrict_to_qualification.name)
         )
+    
     if module_filter:
         boxes_qs = boxes_qs.filter(paper__module_name__iexact=module_filter)
 
@@ -1538,6 +1561,11 @@ def assessor_pool_data(request):
                 "total": sum(letter["count"] for letter in letters_payload),
             }
         )
+    
+    # DEBUG LOGGING
+    logger.info(f"Total boxes found: {boxes_qs.count()}")
+    logger.info(f"Modules in payload: {[m['name'] for m in modules_payload]}")
+    logger.info(f"Payload: {modules_payload}")
 
     return JsonResponse(
         {
@@ -1574,11 +1602,11 @@ def assessor_pool_randomize(request):
     user = request.user
     user_role = getattr(user, "role", "")
     user_qualification = getattr(user, "qualification", None)
+    # Only actual Django staff/superuser OR explicitly marked admin should see all pools
+    is_privileged_user = user.is_superuser or (user.is_staff and user_role == "admin")
 
-    if (
-        not (user.is_staff or user.is_superuser or user_role in {"admin", "moderator"})
-        and not user_qualification
-    ):
+    # Authorization Check: Non-privileged users must have a qualification
+    if not is_privileged_user and not user_qualification:
         return JsonResponse(
             {
                 "ok": False,
@@ -1586,6 +1614,17 @@ def assessor_pool_randomize(request):
             },
             status=403,
         )
+    
+    # Authorization Check: Non-privileged users can only randomize for their own qualification's module
+    if not is_privileged_user and user_qualification:
+        if module_name.lower() != user_qualification.name.lower():
+            return JsonResponse(
+                {
+                    "ok": False,
+                    "message": f"You can only randomize pools for your qualification '{user_qualification.name}'. Access to '{module_name}' is not permitted.",
+                },
+                status=403,
+            )
 
     base_assessment = None
     base_paper = None
@@ -3795,12 +3834,21 @@ def qcto_dashboard(request):
         status__in=["QDD Review",  "Submitted to ETQA"]
     ).order_by("-status_changed_at")
     
+    # Calculate stats for completed reviews forwarded to QDD/ETQA
+    stats = (
+        Assessment.objects.filter(status__in=["QDD Review", "Submitted to ETQA"])
+        .values("qualification__name", "qualification__id")
+        .annotate(validated_count=Count("id"))
+        .order_by("qualification__name")
+    )
+    
     return render(
         request,
         "core/qcto/qcto_dashboard.html",
         {
             "pending_assessments": pending_assessments,
             "reviewed_assessments": reviewed_assessments,
+            "stats": stats,
         },
     )
 

@@ -620,10 +620,57 @@
                 </div>
             </div>
 
-            <!-- Reports Content -->
+            <!-- Completed Reviews (Forwarded to QDD/ETQA) -->
+            <div class="card shadow mt-4 mb-4">
+                <div class="card-header" style="background: linear-gradient(to right, #3a063a, #580658); color: white;">
+                    <h5 class="mb-0"><i class="fas fa-check-circle me-2"></i> Completed Reviews (Forwarded to QDD/ETQA)
+                        {% if reviewed_assessments %}
+                        <span class="badge bg-success ms-2">{{ reviewed_assessments|length }}</span>
+                        {% endif %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if reviewed_assessments %}
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="table-secondary">
+                                <tr>
+                                    <th>EISA ID</th>
+                                    <th>Qualification</th>
+                                    <th>Paper</th>
+                                    <th>Reviewed By</th>
+                                    <th>Status</th>
+                                    <th>Date Forwarded</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for assessment in reviewed_assessments %}
+                                <tr>
+                                    <td><strong>{{ assessment.eisa_id }}</strong></td>
+                                    <td>{{ assessment.qualification.name|default:"-" }}</td>
+                                    <td>{{ assessment.paper|truncatewords:5 }}</td>
+                                    <td>{{ assessment.status_changed_by.get_full_name|default:assessment.status_changed_by.username|default:"System" }}</td>
+                                    <td>
+                                        <span class="badge bg-success">{{ assessment.status }}</span>
+                                    </td>
+                                    <td>{{ assessment.status_changed_at|date:"M j, Y H:i" }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info mb-0">
+                        <i class="fas fa-info-circle me-2"></i> No completed reviews forwarded to QDD/ETQA yet.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Summary Statistics -->
             <div class="card shadow mt-3">
                 <div class="card-header" style="background: linear-gradient(to right, #3a063a, #580658); color: white;">
-                    <h5 class="mb-0"><i class="fas fa-list-alt me-2"></i> Completed Reviews (Forwarded to QDD/ETQA)</h5>
+                    <h5 class="mb-0"><i class="fas fa-bar-chart me-2"></i> Summary by Qualification</h5>
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
@@ -631,13 +678,13 @@
                             <thead class="table-secondary">
                                 <tr>
                                     <th>Qualification</th>
-                                    <th>Validated Count</th>
+                                    <th>Forwarded to QDD Count</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for row in stats %}
                                 <tr>
-                                    <td class="fw-semibold">{{ row.qualification }}</td>
+                                    <td class="fw-semibold">{{ row.qualification__name|default:"-" }}</td>
                                     <td>
                                         <span class="badge bg-success" style="font-size: 14px; padding: 8px 12px;">
                                             {{ row.validated_count }}
@@ -648,7 +695,7 @@
                                 <tr>
                                     <td colspan="2" class="text-center py-4">
                                         <div class="alert alert-info">
-                                            <i class="fas fa-info-circle me-2"></i>No validated assessments yet.
+                                            <i class="fas fa-info-circle me-2"></i>No assessments forwarded to QDD/ETQA yet.
                                         </div>
                                     </td>
                                 </tr>

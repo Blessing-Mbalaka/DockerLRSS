@@ -882,11 +882,20 @@
 
     <!-- Modals -->
     <div class="modal fade" id="assessorPoolModal" tabindex="-1" aria-hidden="true"
-        data-url="{% url 'assessor_pool_data' %}" data-randomize-url="{% url 'assessor_pool_randomize' %}">
+        data-url="{% url 'assessor_pool_data' %}" data-randomize-url="{% url 'assessor_pool_randomize' %}"
+        data-user-qualification="{{ request.user.qualification.name|default:'Not Assigned' }}"
+        data-is-privileged="{% if request.user.is_staff or request.user.is_superuser or request.user.role in 'admin,moderator' %}true{% else %}false{% endif %}">
         <div class="modal-dialog modal-xl modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title"><i class="fas fa-random me-2"></i>Randomization Pools</h5>
+                    <div>
+                        <h5 class="modal-title"><i class="fas fa-random me-2"></i>Randomization Pools</h5>
+                        {% if not request.user.is_staff and not request.user.is_superuser %}
+                        <small class="text-muted">
+                            <i class="fas fa-lock me-1"></i>Viewing pools for qualification: <strong>{{ request.user.qualification.name|default:'Not Assigned' }}</strong>
+                        </small>
+                        {% endif %}
+                    </div>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
@@ -914,6 +923,12 @@
                         </div>
                     </div>
                     <div class="alert alert-info d-none" data-role="pool-status"></div>
+                    <div class="alert alert-warning d-none" data-role="pool-restrict-message">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Qualification Restricted Access:</strong> 
+                        You can only view and randomize pools for your assigned qualification. 
+                        Contact your administrator if you need access to other qualifications.
+                    </div>
                     <div class="pool-grid" data-role="pool-grid"></div>
                     <div class="mt-3" data-role="pool-detail"></div>
                 </div>
@@ -1483,6 +1498,17 @@
                 };
 
                 modalEl.addEventListener('show.bs.modal', () => {
+                    // Show qualification restriction message for non-privileged users
+                    const userQualification = modalEl.getAttribute('data-user-qualification') || '';
+                    const isPrivileged = modalEl.getAttribute('data-is-privileged') === 'true';
+                    const restrictMessageEl = modalEl.querySelector('[data-role="pool-restrict-message"]');
+                    
+                    if (!isPrivileged && userQualification && userQualification !== "Not Assigned" && restrictMessageEl) {
+                        restrictMessageEl.classList.remove('d-none');
+                    } else if (restrictMessageEl) {
+                        restrictMessageEl.classList.add('d-none');
+                    }
+                    
                     if (!rawModules.length) {
                         fetchData();
                     }
