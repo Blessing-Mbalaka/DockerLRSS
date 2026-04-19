@@ -9,23 +9,90 @@
   {% now 'U' as ts %}
   <link rel="stylesheet" href="{% static 'core/exam_extractor/paper.css' %}?v={{ ts }}">
   <script defer src="{% static 'core/exam_extractor/lasso.js' %}?v={{ ts }}"></script>
+  <style>
+    .toast-stack {
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      z-index: 2000;
+      display: grid;
+      gap: 0.75rem;
+      width: min(24rem, calc(100vw - 2rem));
+      pointer-events: none;
+    }
+
+    .toast-item {
+      pointer-events: auto;
+      border-radius: 0.8rem;
+      padding: 0.9rem 1rem;
+      color: #fff;
+      box-shadow: 0 14px 34px rgba(15, 23, 42, 0.18);
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 0.75rem;
+      opacity: 0;
+      transform: translateY(-10px);
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+
+    .toast-item.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .toast-item.hide {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+
+    .toast-item.success {
+      background: linear-gradient(135deg, #0f766e, #0f9f8d);
+    }
+
+    .toast-item.error {
+      background: linear-gradient(135deg, #b91c1c, #dc2626);
+    }
+
+    .toast-item.warning {
+      background: linear-gradient(135deg, #b45309, #d97706);
+    }
+
+    .toast-item.info,
+    .toast-item.debug {
+      background: linear-gradient(135deg, #1d4ed8, #2563eb);
+    }
+
+    .toast-copy {
+      font-size: 0.95rem;
+      line-height: 1.4;
+    }
+
+    .toast-close {
+      border: 0;
+      background: transparent;
+      color: inherit;
+      font-size: 1rem;
+      line-height: 1;
+      cursor: pointer;
+      padding: 0;
+    }
+  </style>
 </head>
 
 <body class="paper-page">
+  {% if messages %}
+  <div class="toast-stack" id="toast-stack" aria-live="polite" aria-atomic="true">
+    {% for message in messages %}
+    <div class="toast-item {{ message.tags|default:'info' }}" data-toast>
+      <div class="toast-copy">{{ message }}</div>
+      <button type="button" class="toast-close" aria-label="Dismiss notification">&times;</button>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
   <div class="toolbar">
-    <a href="{% url dashboard_url %}">&larr; Back to {{ dashboard_display_name }}</a>
-    <button type="button" class="btn" id="btn-ai-draw" data-api="{% url 'exam_ai_draw_blocks' paper.id %}">Draw
-      Blocks</button>
-    <button type="button" class="btn btn-success" id="btn-actual-numbering">Actual Numbering</button>
     <button type="button" class="btn btn-danger" id="btn-capture-all">Capture All</button>
-    <button type="button" class="btn btn-secondary" id="btn-ai-draw-auto"
-      data-api="{% url 'exam_ai_draw_blocks' paper.id %}">Auto Draw All</button>
-    <button type="button" class="btn btn-outline-secondary" id="btn-gadzira"
-      data-api="{% url 'exam_gadzira_draw_blocks' paper.id %}">Gadzira</button>
-    <form id="mbalaka-classify-form" method="post" action="{% url 'exam_mbalaka_classify' paper.id %}"
-      style="display:inline-block; margin:0;">
-      {% csrf_token %}
-    </form>
   </div>
 
 
@@ -144,7 +211,7 @@
                 aria-label="Resize">Resize</button> -->
               <button type="button" class="btn-icon delete-box" title="Delete this box"
                 aria-label="Delete">Delete</button>
-              <span class="chev">?</span>
+              <!-- <span class="chev">?</span> -->
             </span>
           </summary>
           <div class="box-meta">
@@ -276,6 +343,35 @@
     </div>
   </div>
   <script>
+    (() => {
+      const stack = document.getElementById('toast-stack');
+      if (!stack) {
+        return;
+      }
+
+      const dismiss = (toast) => {
+        toast.classList.remove('show');
+        toast.classList.add('hide');
+        window.setTimeout(() => toast.remove(), 220);
+      };
+
+      stack.querySelectorAll('[data-toast]').forEach((toast, index) => {
+        const closeBtn = toast.querySelector('.toast-close');
+        const lifetime = 3200 + (index * 250);
+
+        requestAnimationFrame(() => {
+          toast.classList.add('show');
+        });
+
+        const timeoutId = window.setTimeout(() => dismiss(toast), lifetime);
+        closeBtn?.addEventListener('click', () => {
+          window.clearTimeout(timeoutId);
+          dismiss(toast);
+        });
+      });
+    })();
+  </script>
+  <script>
     (function () {
       const btn = document.getElementById('btn-bank');
       const modal = document.getElementById('bank-modal');
@@ -379,7 +475,7 @@
   <script>
     (function () {
       const catalogEl = document.getElementById('module-catalog');
-      const metaForm = document.querySelector('form[action="{% url 'exam_save_paper_meta' paper.id %}"]');
+      const metaForm = document.querySelector("form[action='{% url 'exam_save_paper_meta' paper.id %}']");
       if (!catalogEl || !metaForm) {
         return;
       }

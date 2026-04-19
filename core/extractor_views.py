@@ -1,5 +1,6 @@
 
 
+from django.contrib import messages
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse, HttpResponseBadRequest
 from django.views.decorators.http import require_POST
@@ -327,7 +328,8 @@ def save_paper_meta(request, paper_id):
     if "title" in request.POST:
         paper.title = (request.POST.get("title") or paper.title or "").strip()
     paper.save(update_fields=["module_name", "paper_number", "paper_letter", "title"])
-    return redirect("exam_paper", paper_id=paper.id)
+    messages.success(request, "Paper metadata saved.")
+    return redirect(reverse("exam_paper", args=[paper.id]))
 
 
 def ai_draw_blocks(request, paper_id):
