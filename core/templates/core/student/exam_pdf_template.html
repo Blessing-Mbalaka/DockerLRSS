@@ -1,3 +1,4 @@
+{% load exam_extras %}
 <!DOCTYPE html>
 <html>
 <head>
@@ -86,7 +87,7 @@
             <div class="question-header">
                 {{ answer.question_number }}. 
                 {% if answer.node and answer.node.text %}
-                    {{ answer.node.text }}
+                    {{ answer.node.text|strip_question_prefix:answer.question_number }}
                 {% else %}
                     Question
                 {% endif %}

@@ -444,10 +444,10 @@
             <div class="mb-4">
               <div class="surface-wrapper mb-2">
                 <div class="note-surface">
-                  <strong>Question {{ forloop.counter }}{% if q.marks %} ({{ q.marks }} marks){% endif %}:</strong>
-                  <p>{{ q.text }}</p>
+                  <strong>Question {{ q.number|default:forloop.counter }}{% if q.marks %} ({{ q.marks }} marks){% endif %}:</strong>
+                  <p>{{ q.text|strip_question_prefix:q.number }}</p>
                 </div>
-                <div class="writing-overlay disabled" data-overlay="notes_legacy_{{ q.id }}" data-active="false" tabindex="-1" aria-label="Write directly on legacy question {{ forloop.counter }}"></div>
+                <div class="writing-overlay disabled" data-overlay="notes_legacy_{{ q.id }}" data-active="false" tabindex="-1" aria-label="Write directly on legacy question {{ q.number|default:forloop.counter }}"></div>
               </div>
               <input type="hidden" name="notes_legacy_{{ q.id }}" value="">
               <label class="form-label" for="answer_{{ q.id }}">Summary / final answer</label>

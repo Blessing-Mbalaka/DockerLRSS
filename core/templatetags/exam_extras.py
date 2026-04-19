@@ -1,12 +1,66 @@
 # core/templatetags/exam_extras.py
+import re
+
 from django import template
 from django.conf import settings
 from django.utils.html import escape
 from django.utils.safestring import mark_safe
 
-from utils.richtext import render_table_html, runs_to_html
+from utils.richtext import render_table_html, runs_to_html, summarize_runs_text
 
 register = template.Library()
+
+
+def _question_prefix_match(text: str, question_number: str) -> re.Match | None:
+    if not text or not question_number:
+        return None
+
+    escaped_number = re.escape(str(question_number).strip())
+    patterns = [
+        rf"^\s*(?:question|q)\s*{escaped_number}(?:\s*[:.)\]-]\s*|\s+)",
+        rf"^\s*{escaped_number}(?:\s*[:.)\]-]\s*|\s+)",
+    ]
+    for pattern in patterns:
+        match = re.match(pattern, text, flags=re.IGNORECASE)
+        if match:
+            return match
+    return None
+
+
+def _strip_question_prefix_text(text: str, question_number: str) -> str:
+    if not text:
+        return ""
+    match = _question_prefix_match(text, question_number)
+    if not match:
+        return text
+    return text[match.end():].lstrip()
+
+
+def _strip_question_prefix_runs(runs: list[dict] | None, question_number: str) -> list[dict] | None:
+    if not runs or not question_number:
+        return runs
+
+    combined = summarize_runs_text(runs)
+    match = _question_prefix_match(combined, question_number)
+    if not match:
+        return runs
+
+    chars_to_trim = match.end()
+    trimmed_runs: list[dict] = []
+    for run in runs:
+        if not isinstance(run, dict):
+            continue
+        cloned_run = dict(run)
+        run_text = str(cloned_run.get("text") or "")
+        if chars_to_trim > 0:
+            if len(run_text) <= chars_to_trim:
+                chars_to_trim -= len(run_text)
+                continue
+            cloned_run["text"] = run_text[chars_to_trim:]
+            chars_to_trim = 0
+        if str(cloned_run.get("text") or ""):
+            trimmed_runs.append(cloned_run)
+    return trimmed_runs
 
 @register.filter
 def dict_get(value, key):
@@ -198,3 +252,28 @@ def render_block(item):
     # Fallback for unknown types
     html = runs_to_html(item.get("runs") if isinstance(item, dict) else None, item.get("text") if isinstance(item, dict) else str(item))
     return mark_safe(f"<div class='docx-paragraph'>{html}</div>")
+
+
+@register.filter
+def strip_question_prefix(text, question_number):
+    return _strip_question_prefix_text(str(text or ""), str(question_number or ""))
+
+
+@register.simple_tag
+def render_student_block(item, question_number=""):
+    if not isinstance(item, dict):
+        return render_block(item)
+
+    cloned_item = dict(item)
+    item_type = (cloned_item.get("type") or "").lower()
+    if item_type == "question_text":
+        cloned_item["text"] = _strip_question_prefix_text(
+            str(cloned_item.get("text") or ""),
+            str(question_number or ""),
+        )
+        cloned_item["runs"] = _strip_question_prefix_runs(
+            cloned_item.get("runs"),
+            str(question_number or ""),
+        )
+
+    return render_block(cloned_item)

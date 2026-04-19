@@ -56,14 +56,14 @@
             {% for q in questions %}
             <div class="question-card">
                 <h5 class="card-title">
-                    Question {{ forloop.counter }}{% if q.marks %} ({{ q.marks }} marks){% endif %}
+                    Question {{ q.number|default:forloop.counter }}{% if q.marks %} ({{ q.marks }} marks){% endif %}
                 </h5>
 
-                {% if q.text %}<p>{{ q.text }}</p>{% endif %}
+                {% if q.text %}<p>{{ q.text|strip_question_prefix:q.number }}</p>{% endif %}
 
                 {# Render each structured content block (tables, figures/images, case studies, etc.) #}
                 {% for item in q.content %}
-                {{ item|render_block }}
+                {% render_student_block item q.number %}
                 {% endfor %}
 
                 <label for="answer_node_{{ q.id }}" class="form-label mt-3">Your Answer:</label>
