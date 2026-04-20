@@ -1,0 +1,465 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Graded Assessments</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <style>
+        body {
+            margin: 0;
+            font-family: Georgia, 'Times New Roman', Times, serif;
+            background: #ecf0f1;
+            color: #2f2f2f;
+        }
+
+        .dashboard-container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            width: 210px;
+            min-height: 100vh;
+            font-size: 13px;
+            background: linear-gradient(to bottom, rgb(195, 193, 193), white, rgb(160, 160, 160), rgb(240, 239, 239), rgb(240, 239, 239), rgb(91, 60, 131));
+            padding: 20px;
+            border-right: 1px solid #8f6620;
+            box-shadow: inset 0 -2px 3px rgba(75, 0, 130, 0.7);
+            position: fixed;
+            top: 0;
+            left: 0;
+            overflow-y: auto;
+        }
+
+        .graduate-icon {
+            display: flex;
+            justify-content: center;
+            margin: 0 auto;
+        }
+
+        .sidebar ul {
+            list-style: none;
+            padding: 0;
+            margin-top: 2rem;
+        }
+
+        .sidebar ul li {
+            margin: 18px 0;
+            border-top: 1.5px solid #580658;
+            border-radius: 10px;
+            transition: background-color 0.3s ease;
+        }
+
+        .sidebar ul li:hover {
+            background-color: #8f6620;
+        }
+
+        .nav-link {
+            color: rgb(81, 3, 102);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            padding: 8px 10px;
+            font-size: 16px;
+        }
+
+        .nav-link:hover,
+        .nav-link.active {
+            color: #fff;
+        }
+
+        .fix {
+            width: 100%;
+            height: 40px;
+            border-radius: 10px;
+            color: whitesmoke;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: none;
+        }
+
+        .gradient-button {
+            background-color: #3a063a;
+            color: white;
+            border: none;
+            border-radius: 25px;
+            padding: 10px 20px;
+            font-size: 12px;
+            margin-top: 10px;
+            cursor: pointer;
+            font-weight: bold;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .content {
+            flex-grow: 1;
+            margin-left: 240px;
+            padding: 24px;
+        }
+
+        .hero {
+            background: linear-gradient(to right, white, rgb(215, 213, 213), rgb(240, 239, 239), rgb(91, 60, 131));
+            border-left: 4px solid rgb(81, 3, 102);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .hero h2 {
+            color: #4d4747;
+            margin-bottom: 0.75rem;
+        }
+
+        .hero p {
+            margin: 0;
+            color: #666;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .summary-card {
+            background: linear-gradient(to right, white, rgb(240, 239, 239));
+            border: 1px solid #8f6620;
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
+        }
+
+        .summary-label {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #6c757d;
+            margin-bottom: 8px;
+        }
+
+        .summary-value {
+            font-size: 28px;
+            font-weight: bold;
+            color: #580658;
+        }
+
+        .results-shell {
+            background: linear-gradient(to right, white, rgb(240, 239, 239));
+            border: 1px solid #8f6620;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .assessment-card {
+            background: #fff;
+            border: 1px solid rgba(88, 6, 88, 0.12);
+            border-left: 4px solid #580658;
+            border-radius: 10px;
+            padding: 16px;
+            margin-bottom: 14px;
+        }
+
+        .assessment-head {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            align-items: flex-start;
+            margin-bottom: 10px;
+        }
+
+        .assessment-head h3 {
+            font-size: 18px;
+            margin: 0;
+            color: #3a063a;
+        }
+
+        .meta-line {
+            font-size: 13px;
+            color: #666;
+            margin-top: 4px;
+        }
+
+        .status-badge,
+        .result-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 12px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-finalized {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-reviewed {
+            background: #cce7ff;
+            color: #004085;
+        }
+
+        .status-graded-by-marker {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .result-passed {
+            background: #28a745;
+            color: #fff;
+        }
+
+        .result-failed {
+            background: #dc3545;
+            color: #fff;
+        }
+
+        .detail-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        .detail-item {
+            background: rgba(143, 102, 32, 0.08);
+            border-radius: 8px;
+            padding: 10px;
+        }
+
+        .detail-item small {
+            display: block;
+            color: #6c757d;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .links-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        .action-link {
+            text-decoration: none;
+            color: #3a063a;
+            border: 1px solid #3a063a;
+            border-radius: 999px;
+            padding: 7px 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .action-link:hover {
+            background: #3a063a;
+            color: #fff;
+        }
+
+        .feedback-box {
+            margin-top: 12px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 12px;
+            font-size: 14px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #6c757d;
+        }
+
+        @media (max-width: 768px) {
+            .dashboard-container {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                position: relative;
+                width: 100%;
+                min-height: auto;
+            }
+
+            .content {
+                margin-left: 0;
+            }
+
+            .assessment-head {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <div class="sidebar">
+            <div class="graduate-icon">
+                <img src="{% static 'core/images/logo_simplebbbbbbbbbbbbbb.png' %}" alt="CHIETA Logo" style="width: 130px;">
+            </div>
+            <ul>
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'student_dashboard' %}">
+                        <i class="fas fa-check me-2"></i>Assessments
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'student_results' %}">
+                        <i class="fas fa-history me-2"></i>Results
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link active" href="{% url 'student_graded_assessments' %}">
+                        <i class="fas fa-clipboard-check me-2"></i>Graded Assessments
+                    </a>
+                </li>
+                <button class="gradient-button w-100 py-0">
+                    <a href="{% url 'logout' %}" class="fix">
+                        <i class="fas fa-sign-out-alt me-1"></i>Log Out
+                    </a>
+                </button>
+            </ul>
+            <img src="{% static 'core/images/rb_2149331949.png' %}" alt="" width="199px">
+        </div>
+
+        <div class="content">
+            <div class="hero">
+                <h2><i class="fas fa-clipboard-check me-2"></i>My Graded Assessments</h2>
+                <p>Review completed marking outcomes, download marked papers, and check feedback for each submitted assessment.</p>
+            </div>
+
+            <div class="summary-grid">
+                <div class="summary-card">
+                    <div class="summary-label">Graded Assessments</div>
+                    <div class="summary-value">{{ summary.graded_count }}</div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-label">Finalized</div>
+                    <div class="summary-value">{{ summary.finalized_count }}</div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-label">Marked Papers</div>
+                    <div class="summary-value">{{ summary.with_marked_paper_count }}</div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-label">Average</div>
+                    <div class="summary-value">
+                        {% if summary.average_percentage is not None %}
+                            {{ summary.average_percentage|floatformat:1 }}%
+                        {% else %}
+                            -
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="results-shell">
+                {% if graded_results %}
+                    {% for result in graded_results %}
+                        <div class="assessment-card">
+                            <div class="assessment-head">
+                                <div>
+                                    <h3>{{ result.submission.assessment.title|default:result.submission.assessment.paper|default:'Assessment' }}</h3>
+                                    <div class="meta-line">
+                                        {{ result.submission.paper.name|default:'Paper unavailable' }}
+                                        {% if result.submission.assessment.qualification %}
+                                            • {{ result.submission.assessment.qualification.name }}
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="d-flex flex-column gap-2 align-items-end">
+                                    <span class="status-badge status-{{ result.status|lower|slugify }}">{{ result.status }}</span>
+                                    {% if result.final_marks is not None %}
+                                        <span class="result-badge {% if result.passed %}result-passed{% else %}result-failed{% endif %}">
+                                            {% if result.passed %}Pass{% else %}Fail{% endif %}
+                                        </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="detail-grid">
+                                <div class="detail-item">
+                                    <small>Attempt</small>
+                                    <strong>#{{ result.submission.attempt_number }}</strong>
+                                </div>
+                                <div class="detail-item">
+                                    <small>Submitted</small>
+                                    <strong>{{ result.submission.submitted_at|date:"M d, Y H:i" }}</strong>
+                                </div>
+                                <div class="detail-item">
+                                    <small>Score</small>
+                                    <strong>
+                                        {% if result.final_marks is not None %}
+                                            {{ result.final_marks }} / {{ result.final_total }}
+                                        {% else %}
+                                            Pending
+                                        {% endif %}
+                                    </strong>
+                                </div>
+                                <div class="detail-item">
+                                    <small>Percentage</small>
+                                    <strong>
+                                        {% if result.percentage is not None %}
+                                            {{ result.percentage|floatformat:1 }}%
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </strong>
+                                </div>
+                            </div>
+
+                            {% if result.submission.feedback or result.submission.internal_feedback or result.submission.external_feedback %}
+                                <div class="feedback-box">
+                                    <strong>Feedback</strong>
+                                    <div class="mt-2">
+                                        {{ result.submission.external_feedback|default:result.submission.internal_feedback|default:result.submission.feedback }}
+                                    </div>
+                                </div>
+                            {% endif %}
+
+                            <div class="links-row">
+                                <a class="action-link" href="{{ result.submission.pdf_file.url }}" target="_blank">
+                                    <i class="fas fa-file-pdf me-1"></i>Original Submission
+                                </a>
+                                {% if result.submission.marked_paper %}
+                                    <a class="action-link" href="{{ result.submission.marked_paper.url }}" target="_blank">
+                                        <i class="fas fa-pen-square me-1"></i>Marker Copy
+                                    </a>
+                                {% endif %}
+                                {% if result.submission.internal_marked_paper %}
+                                    <a class="action-link" href="{{ result.submission.internal_marked_paper.url }}" target="_blank">
+                                        <i class="fas fa-user-check me-1"></i>Internal Review
+                                    </a>
+                                {% endif %}
+                                {% if result.submission.external_marked_paper %}
+                                    <a class="action-link" href="{{ result.submission.external_marked_paper.url }}" target="_blank">
+                                        <i class="fas fa-user-shield me-1"></i>External Review
+                                    </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state">
+                        <i class="fas fa-clipboard-list fa-3x mb-3"></i>
+                        <h3>No Graded Assessments Yet</h3>
+                        <p>Your graded or reviewed submissions will appear here once marking is completed.</p>
+                        <a class="action-link" href="{% url 'student_results' %}">
+                            <i class="fas fa-history me-1"></i>Open Results Summary
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</body>
+</html>

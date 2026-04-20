@@ -99,6 +99,22 @@ class AuthenticatedPageLoadingTests(TestCase):
         response = self.client.get(reverse('databank'))
         self.assertEqual(response.status_code, 200)
 
+    def test_student_graded_assessments_page_loads_for_learner(self):
+        learner = User.objects.create_user(
+            username="learner@example.com",
+            email="learner@example.com",
+            password="testpass123",
+            role="learner",
+            qualification=self.qual,
+            is_active=True,
+        )
+        self.client.force_login(learner)
+
+        response = self.client.get(reverse('student_graded_assessments'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'core/Marking_Logic/student_graded_assessments.html')
+
 
 class AssessmentCentrePageLoadingTests(TestCase):
     """Specific tests for the assessment centre feature we just fixed"""

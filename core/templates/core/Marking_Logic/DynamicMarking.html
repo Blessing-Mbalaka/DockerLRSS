@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PDF Grading Tool</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #ffffff;
+    --bg-secondary: #f5f5f3;
+    --bg-tertiary: #eeede9;
+    --text: #1a1a1a;
+    --text-secondary: #6b6b6b;
+    --text-tertiary: #9e9e9e;
+    --border: rgba(0,0,0,0.12);
+    --border-md: rgba(0,0,0,0.22);
+    --radius: 8px;
+    --radius-lg: 12px;
+    --green-bg: #EAF3DE;
+    --green-border: #97C459;
+    --green-text: #27500A;
+    --red-bg: #FCEBEB;
+    --red-border: #F09595;
+    --red-text: #791F1F;
+    --amber-bg: #FAEEDA;
+    --amber-text: #633806;
+    --blue-bg: #E6F1FB;
+    --blue-border: #85B7EB;
+    --blue-text: #0C447C;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1e1e1e;
+      --bg-secondary: #252525;
+      --bg-tertiary: #2c2c2c;
+      --text: #f0f0f0;
+      --text-secondary: #a0a0a0;
+      --text-tertiary: #666666;
+      --border: rgba(255,255,255,0.10);
+      --border-md: rgba(255,255,255,0.20);
+      --green-bg: #173404;
+      --green-border: #3B6D11;
+      --green-text: #C0DD97;
+      --red-bg: #501313;
+      --red-border: #A32D2D;
+      --red-text: #F7C1C1;
+      --amber-bg: #412402;
+      --amber-text: #FAC775;
+      --blue-bg: #042C53;
+      --blue-border: #185FA5;
+      --blue-text: #B5D4F4;
+    }
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 14px;
+    color: var(--text);
+    background: var(--bg-tertiary);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  #app {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    border: 0.5px solid var(--border);
+    margin: 8px;
+    border-radius: var(--radius-lg);
+    background: var(--bg);
+  }
+
+  /* ── Viewer pane ─────────────────────────────── */
+  #viewer-pane {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-tertiary);
+    min-width: 0;
+    position: relative;
+  }
+
+  #toolbar {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 7px 10px;
+    background: var(--bg);
+    border-bottom: 0.5px solid var(--border);
+    flex-wrap: wrap;
+  }
+
+  .tb-btn {
+    font-size: 12px;
+    padding: 4px 9px;
+    border-radius: var(--radius);
+    border: 0.5px solid var(--border-md);
+    background: transparent;
+    color: var(--text);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+    transition: background 0.1s;
+  }
+  .tb-btn:hover { background: var(--bg-secondary); }
+  .tb-btn.active-tick  { background: var(--green-bg); color: var(--green-text); border-color: var(--green-border); }
+  .tb-btn.active-cross { background: var(--red-bg);   color: var(--red-text);   border-color: var(--red-border); }
+  .tb-btn.active-comment   { background: var(--blue-bg); color: var(--blue-text); border-color: var(--blue-border); }
+  .tb-btn.active-highlight { background: var(--amber-bg); color: var(--amber-text); border-color: #EF9F27; }
+
+  .tool-sep {
+    width: 0.5px; height: 18px;
+    background: var(--border);
+    margin: 0 2px;
+    flex-shrink: 0;
+  }
+
+  #page-info {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-left: auto;
+  }
+
+  #canvas-wrap {
+    flex: 1;
+    overflow: auto;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 16px;
+    position: relative;
+  }
+
+  #pdf-canvas {
+    display: block;
+    border: 0.5px solid var(--border);
+    background: #fff;
+  }
+
+  #annot-svg {
+    position: absolute;
+    top: 16px;
+    pointer-events: none;
+    overflow: visible;
+  }
+
+  /* Drop zone */
+  #drop-zone {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    cursor: pointer;
+  }
+  #drop-zone p { font-size: 13px; color: var(--text-secondary); }
+  .dz-icon {
+    width: 52px; height: 52px; border-radius: 50%;
+    background: var(--bg-secondary);
+    display: flex; align-items: center; justify-content: center;
+  }
+  #drop-zone label {
+    font-size: 12px; padding: 6px 16px;
+    border-radius: var(--radius);
+    border: 0.5px solid var(--border-md);
+    cursor: pointer; color: var(--text-secondary);
+  }
+  #drop-zone label:hover { background: var(--bg-secondary); }
+
+  /* Comment pop-up */
+  #comment-modal {
+    display: none;
+    position: absolute;
+    z-index: 999;
+    background: var(--bg);
+    border: 0.5px solid var(--border-md);
+    border-radius: var(--radius);
+    padding: 10px;
+    width: 200px;
+  }
+  #comment-modal .cm-label { font-size: 11px; color: var(--text-secondary); margin-bottom: 5px; }
+  #comment-modal textarea {
+    width: 100%; height: 60px;
+    padding: 5px;
+    border: 0.5px solid var(--border-md);
+    border-radius: var(--radius);
+    font-size: 12px;
+    font-family: inherit;
+    background: var(--bg);
+    color: var(--text);
+    resize: none; outline: none;
+  }
+  #comment-modal .cm-btns { display: flex; gap: 6px; margin-top: 6px; }
+  #comment-ok {
+    flex: 1; font-size: 11px; padding: 4px;
+    border-radius: var(--radius);
+    border: 0.5px solid var(--green-border);
+    background: var(--green-bg); color: var(--green-text);
+    cursor: pointer;
+  }
+  #comment-cancel {
+    flex: 1; font-size: 11px; padding: 4px;
+    border-radius: var(--radius);
+    border: 0.5px solid var(--border-md);
+    background: transparent; color: var(--text-secondary);
+    cursor: pointer;
+  }
+
+  /* ── Grade pane ──────────────────────────────── */
+  #grade-pane {
+    width: 260px;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+    border-left: 0.5px solid var(--border);
+    overflow-y: auto;
+  }
+
+  .gsec {
+    padding: 10px 12px;
+    border-bottom: 0.5px solid var(--border);
+  }
+  .gsec h3 {
+    font-size: 10px; font-weight: 500;
+    color: var(--text-secondary);
+    text-transform: uppercase; letter-spacing: .06em;
+    margin-bottom: 8px;
+  }
+
+  .frow { margin-bottom: 7px; }
+  .frow label { display: block; font-size: 11px; color: var(--text-secondary); margin-bottom: 2px; }
+  .frow input, .frow select {
+    width: 100%; padding: 5px 7px;
+    border: 0.5px solid var(--border-md);
+    border-radius: var(--radius);
+    background: var(--bg); color: var(--text);
+    font-size: 12px; font-family: inherit;
+  }
+  .frow input:focus, .frow select:focus { outline: none; border-color: #378ADD; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+
+  /* Questions */
+  #q-section { padding: 10px 12px; }
+  #q-section h3 {
+    font-size: 10px; font-weight: 500;
+    color: var(--text-secondary);
+    text-transform: uppercase; letter-spacing: .06em;
+    margin-bottom: 8px;
+  }
+
+  .qrow { display: flex; align-items: center; gap: 5px; margin-bottom: 5px; }
+  .qrow .qlbl { flex: 1; font-size: 12px; color: var(--text); }
+  .qrow .tick-state {
+    width: 26px; height: 26px; border-radius: 50%;
+    border: 0.5px solid var(--border-md);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; background: transparent; flex-shrink: 0;
+    transition: background 0.12s;
+  }
+  .qrow .tick-state:hover { background: var(--bg-secondary); }
+  .qrow .tick-state.is-tick  { background: var(--green-bg); border-color: var(--green-border); }
+  .qrow .tick-state.is-cross { background: var(--red-bg);   border-color: var(--red-border); }
+  .qrow .qmark-in {
+    width: 44px; padding: 3px 5px;
+    border: 0.5px solid var(--border-md); border-radius: var(--radius);
+    background: var(--bg); color: var(--text);
+    font-size: 12px; text-align: center; font-family: inherit;
+  }
+  .qrow .qmax-in {
+    width: 34px; padding: 3px 4px;
+    border: 0.5px solid var(--border-md); border-radius: var(--radius);
+    background: var(--bg); color: var(--text);
+    font-size: 11px; text-align: center; font-family: inherit;
+  }
+  .qrow .sep { font-size: 11px; color: var(--text-tertiary); }
+
+  #add-q {
+    width: 100%; margin-top: 6px; font-size: 11px; padding: 5px;
+    border-radius: var(--radius);
+    border: 0.5px dashed var(--border-md);
+    background: transparent; color: var(--text-secondary);
+    cursor: pointer;
+  }
+  #add-q:hover { background: var(--bg-secondary); }
+
+  /* Total */
+  #total-box {
+    margin: 10px 12px;
+    border-radius: var(--radius-lg);
+    background: var(--bg-secondary);
+    padding: 12px;
+    border: 0.5px solid var(--border);
+  }
+  .tlbl {
+    font-size: 10px; color: var(--text-secondary);
+    text-transform: uppercase; letter-spacing: .05em; margin-bottom: 5px;
+  }
+  #total-display { display: flex; align-items: baseline; gap: 5px; }
+  #scored { font-size: 26px; font-weight: 500; color: var(--text); }
+  #out-of { font-size: 13px; color: var(--text-secondary); }
+  #pct-badge {
+    font-size: 12px; padding: 2px 7px;
+    border-radius: var(--radius);
+    margin-left: auto; font-weight: 500;
+  }
+  .pb-pass  { background: var(--green-bg); color: var(--green-text); }
+  .pb-merit { background: var(--amber-bg); color: var(--amber-text); }
+  .pb-fail  { background: var(--red-bg);   color: var(--red-text); }
+
+  /* Feedback */
+  #feedback-box {
+    margin: 0 12px 8px;
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+  }
+  #feedback-box textarea {
+    width: 100%; height: 64px; padding: 7px;
+    border: none; border-radius: var(--radius);
+    background: var(--bg); color: var(--text);
+    font-size: 12px; font-family: inherit;
+    resize: none; outline: none;
+  }
+  #feedback-box textarea::placeholder { color: var(--text-tertiary); }
+
+  /* Save */
+  #save-btn {
+    margin: 0 12px 12px;
+    width: calc(100% - 24px);
+    padding: 8px;
+    border-radius: var(--radius);
+    background: var(--blue-bg); color: var(--blue-text);
+    border: 0.5px solid var(--blue-border);
+    font-size: 13px; font-weight: 500;
+    cursor: pointer; font-family: inherit;
+  }
+  #save-btn:hover { opacity: .85; }
+</style>
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ── LEFT: PDF viewer ── -->
+  <div id="viewer-pane">
+    <div id="toolbar">
+      <button class="tb-btn active-tick" id="btn-tick">
+        <svg width="14" height="14" viewBox="0 0 14 14"><polyline points="2,7 5.5,11 12,3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Tick
+      </button>
+      <button class="tb-btn" id="btn-cross">
+        <svg width="14" height="14" viewBox="0 0 14 14"><line x1="2" y1="2" x2="12" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="12" y1="2" x2="2" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        Cross
+      </button>
+      <button class="tb-btn" id="btn-comment">
+        <svg width="14" height="14" viewBox="0 0 14 14"><rect x="1" y="1" width="12" height="9" rx="2" fill="none" stroke="currentColor" stroke-width="1.2"/><line x1="1" y1="10" x2="4" y2="13" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+        Comment
+      </button>
+      <button class="tb-btn" id="btn-highlight">
+        <svg width="14" height="14" viewBox="0 0 14 14"><rect x="2" y="4" width="10" height="6" rx="1" fill="currentColor" opacity=".4"/><line x1="2" y1="11" x2="12" y2="11" stroke="currentColor" stroke-width="1"/></svg>
+        Highlight
+      </button>
+      <div class="tool-sep"></div>
+      <button class="tb-btn" id="btn-erase">
+        <svg width="14" height="14" viewBox="0 0 14 14"><rect x="1" y="5" width="8" height="5" rx="1" fill="none" stroke="currentColor" stroke-width="1.2" transform="rotate(-12 6 7)"/><line x1="10" y1="10" x2="13" y2="13" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+        Erase
+      </button>
+      <div class="tool-sep"></div>
+      <button class="tb-btn" id="btn-prev">&#8592; Prev</button>
+      <button class="tb-btn" id="btn-next">Next &#8594;</button>
+      <button class="tb-btn" id="btn-zi">＋ Zoom</button>
+      <button class="tb-btn" id="btn-zo">－ Zoom</button>
+      <span id="page-info">No PDF loaded</span>
+    </div>
+
+    <div id="canvas-wrap">
+      <div id="drop-zone">
+        <div class="dz-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="8" y1="13" x2="16" y2="13"/>
+            <line x1="8" y1="17" x2="13" y2="17"/>
+          </svg>
+        </div>
+        <p>Drop a PDF here to begin grading</p>
+        <label>Browse file <input type="file" accept=".pdf" id="file-input" style="display:none"></label>
+      </div>
+      <canvas id="pdf-canvas"></canvas>
+      <svg id="annot-svg"></svg>
+    </div>
+
+    <!-- Comment pop-up (appended into canvas-wrap via JS) -->
+    <div id="comment-modal">
+      <div class="cm-label">Add comment</div>
+      <textarea id="comment-input" placeholder="Type comment..."></textarea>
+      <div class="cm-btns">
+        <button id="comment-ok">Add</button>
+        <button id="comment-cancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── RIGHT: Grade pane ── -->
+  <div id="grade-pane">
+
+    <div class="gsec">
+      <h3>Learner info</h3>
+      <div class="frow">
+        <label>Student number</label>
+        <input type="text" id="f-stunum" placeholder="e.g. 20240001">
+      </div>
+      <div class="two-col">
+        <div class="frow"><label>Name</label><input type="text" id="f-name" placeholder="First"></div>
+        <div class="frow"><label>Surname</label><input type="text" id="f-surname" placeholder="Last"></div>
+      </div>
+      <div class="two-col">
+        <div class="frow"><label>Date</label><input type="date" id="f-date"></div>
+        <div class="frow">
+          <label>Marked by</label>
+          <select id="f-marker">
+            <option value="">— select —</option>
+            <option>Dr. Mokoena</option>
+            <option>Ms. Dlamini</option>
+            <option>Mr. Van der Berg</option>
+            <option>Prof. Naidoo</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div id="q-section">
+      <h3>Question marks</h3>
+      <div id="q-rows"></div>
+      <button id="add-q">+ add question</button>
+    </div>
+
+    <div id="total-box">
+      <div class="tlbl">Total score</div>
+      <div id="total-display">
+        <span id="scored">0</span>
+        <span id="out-of">/ 0</span>
+        <span id="pct-badge" class="pb-fail">—%</span>
+      </div>
+    </div>
+
+    <div id="feedback-box">
+      <textarea id="feedback-ta" placeholder="General feedback / comments..."></textarea>
+    </div>
+
+    <button id="save-btn">Save grade sheet</button>
+  </div>
+</div>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+// ── State ──────────────────────────────────────────────────────────────────
+let pdfDoc = null, pageNum = 1, scale = 1.35;
+let activeTool = 'tick';
+let annotations = {};      // keyed by page number
+let pendingComment = null;
+let hlStart = null, hlLiveRect = null;
+let questions = [];
+
+const canvas    = document.getElementById('pdf-canvas');
+const ctx       = canvas.getContext('2d');
+const svg       = document.getElementById('annot-svg');
+const canvasWrap = document.getElementById('canvas-wrap');
+const modal     = document.getElementById('comment-modal');
+
+// ── Tool selection ─────────────────────────────────────────────────────────
+const TOOL_CLASSES = {
+  tick:      'active-tick',
+  cross:     'active-cross',
+  comment:   'active-comment',
+  highlight: 'active-highlight',
+  erase:     ''
+};
+
+function setTool(t) {
+  activeTool = t;
+  ['tick','cross','comment','highlight','erase'].forEach(id => {
+    const btn = document.getElementById('btn-' + id);
+    btn.className = 'tb-btn';
+    if (t === id && TOOL_CLASSES[id]) btn.classList.add(TOOL_CLASSES[id]);
+  });
+  canvas.style.cursor = t === 'erase' ? 'cell' : t === 'highlight' ? 'text' : 'crosshair';
+}
+
+['tick','cross','comment','highlight','erase'].forEach(t =>
+  document.getElementById('btn-' + t).addEventListener('click', () => setTool(t))
+);
+setTool('tick');
+
+// ── Annotations ────────────────────────────────────────────────────────────
+function getAnnots() {
+  if (!annotations[pageNum]) annotations[pageNum] = [];
+  return annotations[pageNum];
+}
+
+function renderAnnotations() {
+  // clear
+  while (svg.firstChild) svg.removeChild(svg.firstChild);
+
+  (annotations[pageNum] || []).forEach((a, i) => {
+    let el;
+
+    if (a.type === 'tick') {
+      const g = makeSVG('g');
+      const c = makeSVG('circle');
+      setAttrs(c, { cx: a.x, cy: a.y, r: 13, fill: '#EAF3DE', stroke: '#3B6D11', 'stroke-width': 1 });
+      const p = makeSVG('polyline');
+      setAttrs(p, {
+        points: `${a.x-6},${a.y} ${a.x-1},${a.y+5} ${a.x+7},${a.y-6}`,
+        fill: 'none', stroke: '#27500A', 'stroke-width': 2.2,
+        'stroke-linecap': 'round', 'stroke-linejoin': 'round'
+      });
+      g.append(c, p);
+      makeErasable(g, i);
+      svg.appendChild(g);
+
+    } else if (a.type === 'cross') {
+      const g = makeSVG('g');
+      const c = makeSVG('circle');
+      setAttrs(c, { cx: a.x, cy: a.y, r: 13, fill: '#FCEBEB', stroke: '#A32D2D', 'stroke-width': 1 });
+      const l1 = makeSVG('line');
+      setAttrs(l1, { x1: a.x-6, y1: a.y-6, x2: a.x+6, y2: a.y+6, stroke: '#791F1F', 'stroke-width': 2.2, 'stroke-linecap': 'round' });
+      const l2 = makeSVG('line');
+      setAttrs(l2, { x1: a.x+6, y1: a.y-6, x2: a.x-6, y2: a.y+6, stroke: '#791F1F', 'stroke-width': 2.2, 'stroke-linecap': 'round' });
+      g.append(c, l1, l2);
+      makeErasable(g, i);
+      svg.appendChild(g);
+
+    } else if (a.type === 'comment') {
+      const fo = makeSVG('foreignObject');
+      setAttrs(fo, { x: a.x, y: a.y, width: 160, height: 80 });
+      const div = document.createElement('div');
+      div.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
+      Object.assign(div.style, {
+        fontSize: '11px', fontFamily: 'sans-serif',
+        color: '#27500A', background: '#EAF3DE',
+        border: '0.5px solid #97C459', borderRadius: '4px',
+        padding: '4px 6px', maxWidth: '155px',
+        wordWrap: 'break-word', lineHeight: '1.4', cursor: 'pointer'
+      });
+      div.textContent = a.text;
+      div.title = 'Click with Erase tool to remove';
+      div.addEventListener('click', () => { if (activeTool === 'erase') { annotations[pageNum].splice(i, 1); renderAnnotations(); } });
+      fo.appendChild(div);
+      svg.appendChild(fo);
+
+    } else if (a.type === 'highlight') {
+      const r = makeSVG('rect');
+      setAttrs(r, {
+        x: Math.min(a.x1, a.x2), y: Math.min(a.y1, a.y2),
+        width: Math.abs(a.x2 - a.x1), height: Math.abs(a.y2 - a.y1),
+        fill: 'rgba(239,159,39,0.32)', stroke: 'rgba(186,117,23,0.45)', 'stroke-width': 0.5
+      });
+      makeErasable(r, i);
+      svg.appendChild(r);
+    }
+  });
+}
+
+function makeSVG(tag) {
+  return document.createElementNS('http://www.w3.org/2000/svg', tag);
+}
+function setAttrs(el, attrs) {
+  Object.entries(attrs).forEach(([k, v]) => el.setAttribute(k, v));
+}
+function makeErasable(el, i) {
+  el.style.cursor = 'pointer';
+  el.addEventListener('click', () => {
+    if (activeTool === 'erase') { annotations[pageNum].splice(i, 1); renderAnnotations(); }
+  });
+}
+
+// ── Canvas click → stamp annotation ───────────────────────────────────────
+canvas.addEventListener('mousedown', e => {
+  if (!pdfDoc) return;
+  const r = canvas.getBoundingClientRect();
+  const x = e.clientX - r.left, y = e.clientY - r.top;
+
+  if (activeTool === 'tick') {
+    getAnnots().push({ type: 'tick', x, y });
+    renderAnnotations();
+  } else if (activeTool === 'cross') {
+    getAnnots().push({ type: 'cross', x, y });
+    renderAnnotations();
+  } else if (activeTool === 'comment') {
+    pendingComment = { x, y };
+    const wr = canvasWrap.getBoundingClientRect();
+    modal.style.left = (e.clientX - wr.left + 12) + 'px';
+    modal.style.top  = (e.clientY - wr.top + canvasWrap.scrollTop - 30) + 'px';
+    modal.style.display = 'block';
+    document.getElementById('comment-input').value = '';
+    document.getElementById('comment-input').focus();
+  } else if (activeTool === 'highlight') {
+    hlStart = { x, y };
+    hlLiveRect = makeSVG('rect');
+    setAttrs(hlLiveRect, { fill: 'rgba(239,159,39,0.32)', stroke: 'rgba(186,117,23,0.45)', 'stroke-width': 0.5 });
+    svg.appendChild(hlLiveRect);
+  }
+});
+
+canvas.addEventListener('mousemove', e => {
+  if (activeTool !== 'highlight' || !hlStart) return;
+  const r = canvas.getBoundingClientRect();
+  const x = e.clientX - r.left, y = e.clientY - r.top;
+  setAttrs(hlLiveRect, {
+    x: Math.min(hlStart.x, x), y: Math.min(hlStart.y, y),
+    width: Math.abs(x - hlStart.x), height: Math.abs(y - hlStart.y)
+  });
+});
+
+canvas.addEventListener('mouseup', e => {
+  if (activeTool !== 'highlight' || !hlStart) return;
+  const r = canvas.getBoundingClientRect();
+  const x = e.clientX - r.left, y = e.clientY - r.top;
+  svg.removeChild(hlLiveRect);
+  if (Math.abs(x - hlStart.x) > 5 && Math.abs(y - hlStart.y) > 5) {
+    getAnnots().push({ type: 'highlight', x1: hlStart.x, y1: hlStart.y, x2: x, y2: y });
+    renderAnnotations();
+  }
+  hlStart = null; hlLiveRect = null;
+});
+
+// ── Comment modal ─────────────────────────────────────────────────────────
+document.getElementById('comment-ok').addEventListener('click', () => {
+  const txt = document.getElementById('comment-input').value.trim();
+  if (txt && pendingComment) {
+    getAnnots().push({ type: 'comment', x: pendingComment.x, y: pendingComment.y, text: txt });
+    renderAnnotations();
+  }
+  modal.style.display = 'none'; pendingComment = null;
+});
+document.getElementById('comment-cancel').addEventListener('click', () => {
+  modal.style.display = 'none'; pendingComment = null;
+});
+
+// ── PDF rendering ─────────────────────────────────────────────────────────
+function renderPage(n) {
+  pdfDoc.getPage(n).then(page => {
+    const vp = page.getViewport({ scale });
+    canvas.width  = vp.width;
+    canvas.height = vp.height;
+    svg.setAttribute('width',  vp.width);
+    svg.setAttribute('height', vp.height);
+    page.render({ canvasContext: ctx, viewport: vp });
+    document.getElementById('page-info').textContent = `Page ${n} / ${pdfDoc.numPages}`;
+    renderAnnotations();
+  });
+}
+
+function loadPDF(data) {
+  pdfjsLib.getDocument({ data }).promise.then(doc => {
+    pdfDoc = doc; pageNum = 1;
+    document.getElementById('drop-zone').style.display = 'none';
+    canvas.style.display = 'block';
+    svg.style.display = 'block';
+    renderPage(1);
+  }).catch(err => alert('Could not load PDF: ' + err.message));
+}
+
+function fileToBuffer(file, cb) {
+  const reader = new FileReader();
+  reader.onload = e => cb(e.target.result);
+  reader.readAsArrayBuffer(file);
+}
+
+document.getElementById('file-input').addEventListener('change', e => {
+  if (e.target.files[0]) fileToBuffer(e.target.files[0], loadPDF);
+});
+canvasWrap.addEventListener('dragover', e => e.preventDefault());
+canvasWrap.addEventListener('drop', e => {
+  e.preventDefault();
+  const f = e.dataTransfer.files[0];
+  if (f && f.type === 'application/pdf') fileToBuffer(f, loadPDF);
+});
+
+document.getElementById('btn-prev').addEventListener('click', () => { if (pdfDoc && pageNum > 1)                    { pageNum--; renderPage(pageNum); } });
+document.getElementById('btn-next').addEventListener('click', () => { if (pdfDoc && pageNum < pdfDoc.numPages)     { pageNum++; renderPage(pageNum); } });
+document.getElementById('btn-zi').addEventListener('click',   () => { scale = Math.min(3,   +(scale + 0.2).toFixed(1)); if (pdfDoc) renderPage(pageNum); });
+document.getElementById('btn-zo').addEventListener('click',   () => { scale = Math.max(0.5, +(scale - 0.2).toFixed(1)); if (pdfDoc) renderPage(pageNum); });
+
+// ── Grade pane: questions ─────────────────────────────────────────────────
+function addQuestion(maxVal) {
+  const q = { id: Date.now() + Math.random(), score: 0, max: maxVal || 10, state: 'none' };
+  questions.push(q);
+  const n = questions.length;
+
+  const row = document.createElement('div');
+  row.className = 'qrow';
+
+  const lbl = document.createElement('span');
+  lbl.className = 'qlbl';
+  lbl.textContent = 'Q' + n;
+
+  // tick/cross toggle button
+  const tickBtn = document.createElement('button');
+  tickBtn.className = 'tick-state';
+  tickBtn.title = 'Click to toggle: tick → cross → none';
+  renderTickBtn(tickBtn, q.state);
+  tickBtn.addEventListener('click', () => {
+    q.state = q.state === 'tick' ? 'cross' : q.state === 'cross' ? 'none' : 'tick';
+    renderTickBtn(tickBtn, q.state);
+  });
+
+  const markIn = document.createElement('input');
+  markIn.type = 'number'; markIn.min = 0; markIn.value = 0; markIn.className = 'qmark-in';
+  markIn.addEventListener('input', () => { q.score = +markIn.value || 0; recalc(); });
+
+  const sep = document.createElement('span');
+  sep.className = 'sep'; sep.textContent = '/';
+
+  const maxIn = document.createElement('input');
+  maxIn.type = 'number'; maxIn.min = 1; maxIn.value = maxVal || 10; maxIn.className = 'qmax-in';
+  maxIn.addEventListener('input', () => { q.max = +maxIn.value || 0; recalc(); });
+
+  row.append(lbl, tickBtn, markIn, sep, maxIn);
+  document.getElementById('q-rows').appendChild(row);
+  recalc();
+}
+
+function renderTickBtn(btn, state) {
+  btn.className = 'tick-state' + (state === 'tick' ? ' is-tick' : state === 'cross' ? ' is-cross' : '');
+  if (state === 'tick') {
+    btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 14 14"><polyline points="2,7 5.5,11 12,3" fill="none" stroke="#27500A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  } else if (state === 'cross') {
+    btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 14 14"><line x1="2" y1="2" x2="12" y2="12" stroke="#791F1F" stroke-width="2.2" stroke-linecap="round"/><line x1="12" y1="2" x2="2" y2="12" stroke="#791F1F" stroke-width="2.2" stroke-linecap="round"/></svg>`;
+  } else {
+    btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5" fill="none" stroke="#9e9e9e" stroke-width="1"/></svg>`;
+  }
+}
+
+function recalc() {
+  const tot = questions.reduce((a, q) => a + (q.max || 0), 0);
+  const sc  = questions.reduce((a, q) => a + Math.min(q.score || 0, q.max || 0), 0);
+  document.getElementById('scored').textContent  = sc;
+  document.getElementById('out-of').textContent  = '/ ' + tot;
+  const pb = document.getElementById('pct-badge');
+  if (!tot) { pb.textContent = '—%'; pb.className = 'pb-fail'; return; }
+  const p = Math.round(sc / tot * 100);
+  pb.textContent = p + '%';
+  pb.className   = p >= 75 ? 'pb-pass' : p >= 50 ? 'pb-merit' : 'pb-fail';
+}
+
+// seed with default questions
+[10, 10, 10, 5, 5, 5, 5].forEach(m => addQuestion(m));
+document.getElementById('add-q').addEventListener('click', () => addQuestion(10));
+document.getElementById('f-date').valueAsDate = new Date();
+
+// ── Save ──────────────────────────────────────────────────────────────────
+document.getElementById('save-btn').addEventListener('click', () => {
+  const name     = document.getElementById('f-name').value    || '—';
+  const surname  = document.getElementById('f-surname').value || '—';
+  const stu      = document.getElementById('f-stunum').value  || '—';
+  const marker   = document.getElementById('f-marker').value  || '—';
+  const date     = document.getElementById('f-date').value    || '—';
+  const sc       = document.getElementById('scored').textContent;
+  const oo       = document.getElementById('out-of').textContent;
+  const pct      = document.getElementById('pct-badge').textContent;
+  const feedback = document.getElementById('feedback-ta').value || '(none)';
+  const totalAnnots = Object.values(annotations).reduce((a, b) => a + b.length, 0);
+  const qSummary = questions.map((q, i) =>
+    `  Q${i+1}: ${q.score}/${q.max} [${q.state === 'none' ? '-' : q.state}]`
+  ).join('\n');
+
+  alert(
+    `=== Grade Sheet ===\n` +
+    `Student: ${name} ${surname} (${stu})\n` +
+    `Date: ${date}  |  Marked by: ${marker}\n\n` +
+    `Questions:\n${qSummary}\n\n` +
+    `Score: ${sc} ${oo} — ${pct}\n` +
+    `PDF annotations: ${totalAnnots}\n\n` +
+    `Feedback: ${feedback}`
+  );
+});
+</script>
+</body>
+</html>

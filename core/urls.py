@@ -6,6 +6,7 @@ from django.urls import path, include
 import core.views as views
 from core import admin_views as admin_pages
 from core import extractor_views
+from core import student_marking_views
 
 from core.create_student import (toggle_student_status, create_student_by_assessment_center)
 from core.auth_views import (forgot_password, reset_password)
@@ -163,6 +164,7 @@ urlpatterns = [
   # redirections for assessor marker
     path('assessor_marker/dashboard/', views.assessor_maker_dashboard, name='assessor_maker_dashboard'),
     path('student/results/', views.student_results, name='student_results'),
+    path('student/graded-assessments/', student_marking_views.student_graded_assessments, name='student_graded_assessments'),
     path('upload-marked-paper/<int:submission_id>/', views.upload_marked_paper, name='upload_marked_paper'),
 
     ############nNEW URLS#########################################

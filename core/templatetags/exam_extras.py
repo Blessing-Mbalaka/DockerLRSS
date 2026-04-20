@@ -5,6 +5,7 @@ from django import template
 from django.conf import settings
 from django.utils.html import escape
 from django.utils.safestring import mark_safe
+from lxml import html as lxml_html
 
 from utils.richtext import render_table_html, runs_to_html, summarize_runs_text
 
@@ -17,8 +18,8 @@ def _question_prefix_match(text: str, question_number: str) -> re.Match | None:
 
     escaped_number = re.escape(str(question_number).strip())
     patterns = [
-        rf"^\s*(?:question|q)\s*{escaped_number}(?:\s*[:.)\]-]\s*|\s+)",
-        rf"^\s*{escaped_number}(?:\s*[:.)\]-]\s*|\s+)",
+        rf"^\s*(?:question|q)(?:\s*(?:no|number)\.?)?\s*[(\[]?\s*{escaped_number}\s*[)\]]?(?:\s*[:.)\]-]\s*|\s+|$)",
+        rf"^\s*[(\[]?\s*{escaped_number}\s*[)\]]?(?:\s*[:.)\]-]\s*|\s+|$)",
     ]
     for pattern in patterns:
         match = re.match(pattern, text, flags=re.IGNORECASE)
@@ -34,6 +35,65 @@ def _strip_question_prefix_text(text: str, question_number: str) -> str:
     if not match:
         return text
     return text[match.end():].lstrip()
+
+
+def _normalize_inline_whitespace(text: str) -> str:
+    return re.sub(r"\s+", " ", str(text or "")).strip()
+
+
+def _strip_inline_duplicate_question_number(text: str, question_number: str) -> str:
+    if not text or not question_number:
+        return _normalize_inline_whitespace(text)
+    escaped_number = re.escape(str(question_number).strip())
+    cleaned = re.sub(rf"(?<!\d){escaped_number}(?!\d)", " ", str(text or ""), flags=re.IGNORECASE)
+    return _normalize_inline_whitespace(cleaned)
+
+
+def _extract_text_from_html(html_snippet: str) -> str:
+    if not html_snippet or not html_snippet.strip():
+        return ""
+    try:
+        wrapper = lxml_html.fragment_fromstring(html_snippet, create_parent=True)
+    except Exception:
+        return _normalize_inline_whitespace(html_snippet)
+
+    first_header_or_cell = wrapper.xpath(".//th[1] | .//td[1]")
+    if first_header_or_cell:
+        return _normalize_inline_whitespace(first_header_or_cell[0].text_content())
+    return _normalize_inline_whitespace(wrapper.text_content())
+
+
+def _derive_question_heading_from_content(content: list[dict] | None, question_number: str) -> str:
+    if not content:
+        return ""
+
+    for block in content:
+        if not isinstance(block, dict):
+            continue
+
+        block_type = (block.get("type") or "").lower()
+        candidate = ""
+        if block_type in {"question_text", "text", "paragraph", "instruction", "heading", "case_study"}:
+            candidate = str(block.get("text") or "") or summarize_runs_text(block.get("runs"))
+        elif block_type == "table":
+            candidate = _extract_text_from_html(str(block.get("html") or ""))
+            if not candidate:
+                rows = block.get("rows") or []
+                if rows and isinstance(rows[0], (list, tuple)):
+                    candidate = _normalize_inline_whitespace(" ".join(str(cell or "") for cell in rows[0]))
+
+        candidate = _normalize_inline_whitespace(candidate)
+        if not candidate:
+            continue
+
+        stripped = _normalize_inline_whitespace(
+            _strip_question_prefix_text(candidate, question_number)
+        )
+        stripped = _strip_inline_duplicate_question_number(stripped, question_number)
+        if stripped and stripped.lower() != "question":
+            return stripped
+
+    return ""
 
 
 def _strip_question_prefix_runs(runs: list[dict] | None, question_number: str) -> list[dict] | None:
@@ -257,6 +317,31 @@ def render_block(item):
 @register.filter
 def strip_question_prefix(text, question_number):
     return _strip_question_prefix_text(str(text or ""), str(question_number or ""))
+
+
+@register.simple_tag
+def question_heading(node, question_number=""):
+    node_text = _normalize_inline_whitespace(str(getattr(node, "text", "") or ""))
+    stripped_text = _normalize_inline_whitespace(
+        _strip_question_prefix_text(node_text, str(question_number or ""))
+    )
+    stripped_text = _strip_inline_duplicate_question_number(
+        stripped_text,
+        str(question_number or ""),
+    )
+    if stripped_text and stripped_text.lower() != "question":
+        return stripped_text
+
+    derived = _derive_question_heading_from_content(
+        getattr(node, "content", None),
+        str(question_number or ""),
+    )
+    if derived:
+        return derived
+
+    if stripped_text:
+        return stripped_text
+    return "Question"
 
 
 @register.simple_tag

@@ -4,7 +4,7 @@ from django.test import TestCase
 from django.template.loader import render_to_string
 
 from core.models import Assessment, CustomUser, Paper, Qualification
-from core.templatetags.exam_extras import render_student_block
+from core.templatetags.exam_extras import question_heading, render_student_block, strip_question_prefix
 
 
 class DuplicateQuestionNumberRenderingTests(TestCase):
@@ -114,3 +114,147 @@ class DuplicateQuestionNumberRenderingTests(TestCase):
         self.assertIn("2.3.", html)
         self.assertIn("Describe PPE checks before use.", html)
         self.assertNotIn("2.3 Describe PPE checks before use.", html)
+
+    def test_strip_question_prefix_handles_question_label_prefixes(self):
+        self.assertEqual(
+            strip_question_prefix("Question 2.3 Describe PPE checks before use.", "2.3"),
+            "Describe PPE checks before use.",
+        )
+        self.assertEqual(
+            strip_question_prefix("Q 2.3 Describe PPE checks before use.", "2.3"),
+            "Describe PPE checks before use.",
+        )
+        self.assertEqual(
+            strip_question_prefix("Question No. 2.3 Describe PPE checks before use.", "2.3"),
+            "Describe PPE checks before use.",
+        )
+
+    def test_strip_question_prefix_handles_wrapped_number_prefixes(self):
+        self.assertEqual(
+            strip_question_prefix("(2.3) Describe PPE checks before use.", "2.3"),
+            "Describe PPE checks before use.",
+        )
+        self.assertEqual(
+            strip_question_prefix("[2.3] Describe PPE checks before use.", "2.3"),
+            "Describe PPE checks before use.",
+        )
+
+    def test_strip_question_prefix_handles_number_only_text(self):
+        self.assertEqual(strip_question_prefix("2.3", "2.3"), "")
+        self.assertEqual(strip_question_prefix("2.3 ", "2.3"), "")
+        self.assertEqual(strip_question_prefix("(2.3)", "2.3"), "")
+
+    def test_exam_pdf_template_strips_question_label_prefix_from_node_text(self):
+        answers = [
+            SimpleNamespace(
+                question_number="2.3",
+                node=SimpleNamespace(text="Question 2.3 Describe PPE checks before use."),
+                marks="10",
+                answer="Inspect straps, seals, and expiry dates.",
+            )
+        ]
+
+        html = render_to_string(
+            "core/student/exam_pdf_template.html",
+            {
+                "paper": self.paper_context,
+                "assessment": self.assessment_context,
+                "student_name": "Test Student",
+                "student_number": "STU-001",
+                "attempt_number": 1,
+                "submission_date": None,
+                "answers": answers,
+                "total_questions": len(answers),
+            },
+        )
+
+        self.assertIn("2.3.", html)
+        self.assertIn("Describe PPE checks before use.", html)
+        self.assertNotIn("Question 2.3 Describe PPE checks before use.", html)
+
+    def test_exam_pdf_template_hides_duplicate_when_node_text_is_number_only(self):
+        answers = [
+            SimpleNamespace(
+                question_number="1.1.2",
+                node=SimpleNamespace(text="1.1.2"),
+                marks="10",
+                answer="Concise answer text.",
+            )
+        ]
+
+        html = render_to_string(
+            "core/student/exam_pdf_template.html",
+            {
+                "paper": self.paper_context,
+                "assessment": self.assessment_context,
+                "student_name": "Test Student",
+                "student_number": "STU-001",
+                "attempt_number": 1,
+                "submission_date": None,
+                "answers": answers,
+                "total_questions": len(answers),
+            },
+        )
+
+        self.assertIn("1.1.2.", html)
+        self.assertNotIn("1.1.2. 1.1.2", html)
+
+    def test_question_heading_falls_back_to_table_html_when_text_blank(self):
+        node = SimpleNamespace(
+            text="",
+            content=[
+                {
+                    "type": "table",
+                    "html": "<table><thead><tr><th>2.1.3 Analyse sample results and data collected from service delivered or manufacturing process 2.1.3 Constructive Response</th></tr></thead></table>",
+                }
+            ],
+        )
+
+        heading = question_heading(node, "2.1.3")
+
+        self.assertIn(
+            "Analyse sample results and data collected from service delivered or manufacturing process",
+            heading,
+        )
+        self.assertNotEqual(heading, "Question")
+        self.assertNotIn("2.1.3 Constructive Response", heading)
+
+    def test_exam_pdf_template_uses_content_fallback_when_node_text_blank(self):
+        answers = [
+            SimpleNamespace(
+                question_number="2.1.1",
+                node=SimpleNamespace(
+                    text="",
+                    content=[
+                        {
+                            "type": "table",
+                            "html": "<table><thead><tr><th>2.1.1 Identify tools and method to use in processing information during manufacturing and service rendering2.1.1 Multiple Choice Question</th></tr></thead></table>",
+                        }
+                    ],
+                ),
+                marks="5",
+                answer="Student answer text.",
+            )
+        ]
+
+        html = render_to_string(
+            "core/student/exam_pdf_template.html",
+            {
+                "paper": self.paper_context,
+                "assessment": self.assessment_context,
+                "student_name": "Test Student",
+                "student_number": "STU-001",
+                "attempt_number": 1,
+                "submission_date": None,
+                "answers": answers,
+                "total_questions": len(answers),
+            },
+        )
+
+        self.assertIn("2.1.1.", html)
+        self.assertIn(
+            "Identify tools and method to use in processing information during manufacturing and service rendering",
+            html,
+        )
+        self.assertNotIn("2.1.1. Question", html)
+        self.assertNotIn("rendering2.1.1", html)
