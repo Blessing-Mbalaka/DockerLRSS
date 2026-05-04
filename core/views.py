@@ -6698,3 +6698,171 @@ def add_case_study(request):
             CaseStudy.objects.create(title=title, content=content)
             messages.success(request, "Case study added successfully.")
     return redirect("databank")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PDF Annotation API views
+# ─────────────────────────────────────────────────────────────────────────────
+
+import json as _json
+from .models import PdfAnnotation
+
+
+def _submission_for_legacy_pdf_path(pdf_path):
+    """Map an old pdf_path-based request onto the new submission-owned model."""
+    normalized = (pdf_path or "").lstrip("/")
+    if normalized.startswith("media/"):
+        normalized = normalized[6:]
+
+    if not normalized:
+        return None
+
+    return (
+        ExamSubmission.objects
+        .filter(
+            Q(pdf_file=normalized)
+            | Q(marked_paper=normalized)
+            | Q(internal_marked_paper=normalized)
+            | Q(external_marked_paper=normalized)
+        )
+        .first()
+    )
+
+
+@login_required
+@require_http_methods(["GET"])
+def pdf_annotations_load(request):
+    """
+    GET /api/pdf-annotations/?pdf_path=<relative-media-path>
+    Returns all annotations placed by the current user on the given PDF.
+    """
+    pdf_path = request.GET.get("pdf_path", "").strip()
+    if not pdf_path:
+        return JsonResponse({"error": "pdf_path is required"}, status=400)
+
+    submission = _submission_for_legacy_pdf_path(pdf_path)
+    if not submission:
+        return JsonResponse({"annotations": []})
+
+    annotations = []
+    for ann in PdfAnnotation.objects.filter(submission=submission).select_related("created_by"):
+        annotations.append({
+            "id": ann.id,
+            "type": ann.ann_type,
+            "annotation_type": ann.ann_type,
+            "page": ann.page,
+            "x": ann.x,
+            "y": ann.y,
+            "canvas_width": 1,
+            "canvas_height": 1,
+            "text": ann.text,
+            "colour": ann.colour,
+            "role": ann.role,
+            "owner_name": ann.created_by.get_full_name() or ann.created_by.username if ann.created_by else "Unknown",
+            "is_mine": ann.created_by_id == request.user.id,
+        })
+    return JsonResponse({"annotations": annotations})
+
+
+@login_required
+@require_POST
+def pdf_annotations_save(request):
+    """
+    POST /api/pdf-annotations/save/
+    Body (JSON): {
+        "pdf_path": "exam_submissions/...",
+        "annotations": [
+            {"type": "tick"|"cross"|"comment", "page": 1,
+             "x": 120.5, "y": 340.2,
+             "canvas_width": 816, "canvas_height": 1056,
+             "text": ""},
+            ...
+        ]
+    }
+    Replaces ALL of the current user's annotations for that PDF with the
+    supplied list (full replace keeps things simple and consistent).
+    """
+    try:
+        body = _json.loads(request.body)
+    except _json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    pdf_path = body.get("pdf_path", "").strip()
+    if not pdf_path:
+        return JsonResponse({"error": "pdf_path is required"}, status=400)
+
+    submission = _submission_for_legacy_pdf_path(pdf_path)
+    if not submission:
+        return JsonResponse({"saved": 0})
+
+    raw_annotations = body.get("annotations", [])
+    if not isinstance(raw_annotations, list):
+        return JsonResponse({"error": "annotations must be a list"}, status=400)
+
+    # Validate each annotation
+    valid_types = {"tick", "cross", "comment"}
+    cleaned = []
+    for ann in raw_annotations:
+        if not isinstance(ann, dict):
+            continue
+        ann_type = ann.get("type", "")
+        if ann_type not in valid_types:
+            continue
+        try:
+            canvas_width = float(ann.get("canvas_width", 1) or 1)
+            canvas_height = float(ann.get("canvas_height", 1) or 1)
+            x = float(ann.get("x", 0))
+            y = float(ann.get("y", 0))
+            if x > 1 and canvas_width > 1:
+                x = x / canvas_width
+            if y > 1 and canvas_height > 1:
+                y = y / canvas_height
+
+            cleaned.append(PdfAnnotation(
+                submission=submission,
+                created_by=request.user,
+                role=request.user.role,
+                ann_type=ann_type,
+                page=max(1, int(ann.get("page", 1))),
+                x=max(0, min(1, x)),
+                y=max(0, min(1, y)),
+                text=str(ann.get("text", ""))[:2000],
+            ))
+        except (TypeError, ValueError):
+            continue
+
+    # Atomic replace: delete old, bulk-create new
+    from django.db import transaction
+    with transaction.atomic():
+        PdfAnnotation.objects.filter(submission=submission, created_by=request.user).delete()
+        PdfAnnotation.objects.bulk_create(cleaned)
+
+    return JsonResponse({"saved": len(cleaned)})
+
+
+@login_required
+@require_POST
+def pdf_annotations_delete_all(request):
+    """
+    POST /api/pdf-annotations/clear/
+    Body (JSON): {"pdf_path": "..."}
+    Deletes all annotations by the current user for this PDF.
+    """
+    try:
+        body = _json.loads(request.body)
+    except _json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    pdf_path = body.get("pdf_path", "").strip()
+    if not pdf_path:
+        return JsonResponse({"error": "pdf_path is required"}, status=400)
+
+    submission = _submission_for_legacy_pdf_path(pdf_path)
+    if not submission:
+        return JsonResponse({"deleted": 0})
+
+    deleted, _ = PdfAnnotation.objects.filter(
+        submission=submission,
+        created_by=request.user,
+    ).delete()
+    return JsonResponse({"deleted": deleted})

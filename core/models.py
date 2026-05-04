@@ -1021,3 +1021,106 @@ class ExamSubmission(models.Model):
     @property
     def student_display(self):
         return self.student_name or self.student_number
+
+
+class PdfAnnotation(models.Model):
+    """Role-isolated annotations on exam submissions with user ownership."""
+
+    ANNOTATION_TYPES = [
+        ('tick',    'Tick'),
+        ('cross',   'Cross'),
+        ('comment', 'Comment'),
+    ]
+
+    ROLE_COLORS = {
+        'assessor_marker': '#FF6B6B',      # Red
+        'internal_mod':    '#4ECDC4',      # Teal
+        'external_mod':    '#FFE66D',      # Yellow
+    }
+
+    # Ownership
+    submission = models.ForeignKey(
+        ExamSubmission,
+        on_delete=models.CASCADE,
+        related_name='annotations',
+        null=True,
+        blank=True,
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='created_annotations',
+        null=True,
+        blank=True,
+    )
+    role = models.CharField(max_length=30, blank=True, default='')  # Snapshot of user role when annotation was created
+
+    # Annotation data
+    ann_type = models.CharField(max_length=10, choices=ANNOTATION_TYPES)
+    page = models.PositiveIntegerField()
+    x = models.FloatField()
+    y = models.FloatField()
+    text = models.TextField(blank=True, default='')
+
+    # Color derived from role
+    colour = models.CharField(max_length=7, default='#000000')
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['page', 'created_at']
+        indexes = [
+            models.Index(fields=['submission', 'created_by']),
+            models.Index(fields=['submission', 'role']),
+        ]
+
+    def save(self, *args, **kwargs):
+        """Auto-set colour based on role."""
+        self.colour = self.ROLE_COLORS.get(self.role, '#000000')
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.created_by} ({self.role}) – {self.ann_type} on submission {self.submission_id}"
+
+
+class GradeChangeLog(models.Model):
+    """Audit trail for grade changes by Assessor Marker, Internal Moderator, and External Moderator."""
+
+    TIER_CHOICES = [
+        ('marker', 'Assessor Marker'),
+        ('internal', 'Internal Moderator'),
+        ('external', 'External Moderator (QALA)'),
+    ]
+
+    submission = models.ForeignKey(
+        ExamSubmission,
+        on_delete=models.CASCADE,
+        related_name='grade_changes',
+    )
+    tier = models.CharField(max_length=20, choices=TIER_CHOICES)
+    changed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='grade_change_logs',
+    )
+
+    old_marks = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    new_marks = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    old_feedback = models.TextField(blank=True, default='')
+    new_feedback = models.TextField(blank=True, default='')
+    note = models.TextField(blank=True, default='')
+
+    changed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-changed_at']
+        indexes = [
+            models.Index(fields=['submission', 'tier']),
+            models.Index(fields=['changed_by', 'changed_at']),
+        ]
+
+    def __str__(self):
+        return f"Grade change on {self.submission} by {self.changed_by} ({self.tier})"

@@ -6,7 +6,7 @@ from django.urls import path, include
 import core.views as views
 from core import admin_views as admin_pages
 from core import extractor_views
-from core import student_marking_views
+from core import annotation_views
 
 from core.create_student import (toggle_student_status, create_student_by_assessment_center)
 from core.auth_views import (forgot_password, reset_password)
@@ -164,7 +164,6 @@ urlpatterns = [
   # redirections for assessor marker
     path('assessor_marker/dashboard/', views.assessor_maker_dashboard, name='assessor_maker_dashboard'),
     path('student/results/', views.student_results, name='student_results'),
-    path('student/graded-assessments/', student_marking_views.student_graded_assessments, name='student_graded_assessments'),
     path('upload-marked-paper/<int:submission_id>/', views.upload_marked_paper, name='upload_marked_paper'),
 
     ############nNEW URLS#########################################
@@ -262,6 +261,25 @@ urlpatterns = [
     ),
 
 
+    # Role-Isolated Annotation & Grade Edit API
+    # Annotation Management
+    path('api/annotations/<int:submission_id>/list/',        annotation_views.list_annotations,           name='list_annotations'),
+    path('api/annotations/<int:submission_id>/add/',         annotation_views.add_annotation,             name='add_annotation'),
+    path('api/annotations/delete/<int:annotation_id>/',      annotation_views.delete_annotation,          name='delete_annotation'),
+    path('api/annotations/delete-bulk/',                      annotation_views.delete_annotations_bulk,    name='delete_annotations_bulk'),
+
+    # Grade Editing (Role-based)
+    path('api/grade/marker/<int:submission_id>/edit/',       annotation_views.edit_marker_grade,          name='edit_marker_grade'),
+    path('api/grade/internal/<int:submission_id>/edit/',     annotation_views.edit_internal_grade,        name='edit_internal_grade'),
+    path('api/grade/external/<int:submission_id>/edit/',     annotation_views.edit_external_grade,        name='edit_external_grade'),
+
+    # Audit Trail
+    path('api/grade/<int:submission_id>/log/',               annotation_views.grade_change_log,           name='grade_change_log'),
+
+    # Legacy PDF Annotation API (kept for backward compatibility)
+    path('api/pdf-annotations/',        views.pdf_annotations_load,       name='pdf_annotations_load'),
+    path('api/pdf-annotations/save/',   views.pdf_annotations_save,       name='pdf_annotations_save'),
+    path('api/pdf-annotations/clear/',  views.pdf_annotations_delete_all, name='pdf_annotations_clear'),
 ]
 
 if settings.DEBUG:

@@ -790,7 +790,7 @@
                                         <td>
                                             <div class="btn-group-vertical" style="min-width: 140px;">
                                                 <!-- Student Paper -->
-                                                <a href="{{ submission.pdf_file.url }}" target="_blank" 
+                                                <a href="#" onclick="openPdfViewer('{{ submission.pdf_file.url }}', 'Student Paper', {{ submission.id }}); return false;"
                                                    class="btn btn-sm btn-outline-primary mb-1">
                                                     <i class="fas fa-eye me-1"></i> Student Paper
                                                 </a>
@@ -832,7 +832,7 @@
                                                 
                                                 <!-- Marked Paper Section -->
                                                 {% if submission.marked_paper %}
-                                                    <a href="{{ submission.marked_paper.url }}" target="_blank" 
+                                                    <a href="#" onclick="openPdfViewer('{{ submission.marked_paper.url }}', 'Marked Paper', {{ submission.id }}); return false;"
                                                        class="btn btn-sm btn-outline-success">
                                                         <i class="fas fa-check me-1"></i> View Marked
                                                     </a>
@@ -933,14 +933,13 @@
                                                    title="Download Original Exam">
                                                     <i class="fas fa-download"></i>
                                                 </a>
-                                                <a href="{{ submission.pdf_file.url }}" 
-                                                   target="_blank"
+                                                <a href="#" onclick="openPdfViewer('{{ submission.pdf_file.url }}', 'Original Exam', {{ submission.id }}); return false;"
                                                    class="btn btn-sm btn-outline-primary"
                                                    title="View Original Exam">
                                                     <i class="fas fa-eye"></i>
                                                 </a>
                                                 {% if submission.marked_paper %}
-                                                <a href="{{ submission.marked_paper.url }}" 
+                                                <a href="#" onclick="openPdfViewer('{{ submission.marked_paper.url }}', 'Marked Paper', {{ submission.id }}); return false;"
                                                    class="btn btn-sm btn-outline-success"
                                                    title="View Marked Paper">
                                                     <i class="fas fa-file-pdf"></i>
@@ -1051,7 +1050,7 @@
             submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>';
             submitBtn.disabled = true;
             
-            const urlTemplate = "{% url 'upload_marked_paper' 0 %}";
+            const urlTemplate = "{% url 'edit_marker_grade' 0 %}";
             const endpoint = urlTemplate.replace("0", submissionId);
 
             fetch(endpoint, {
@@ -1097,7 +1096,7 @@
                 submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>';
                 submitBtn.disabled = true;
                 
-                const urlTemplate = "{% url 'upload_marked_paper' 0 %}";
+                const urlTemplate = "{% url 'edit_marker_grade' 0 %}";
                 const endpoint = urlTemplate.replace("0", submissionId);
 
                 fetch(endpoint, {
@@ -1188,7 +1187,7 @@
                     submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>';
                     submitBtn.disabled = true;
 
-                    const urlTemplate = "{% url 'upload_marked_paper' 0 %}";
+                    const urlTemplate = "{% url 'edit_marker_grade' 0 %}";
                     const endpoint = urlTemplate.replace("0", submissionId);
 
                     fetch(endpoint, {
@@ -1269,5 +1268,6 @@
             };
         }
     </script>
+    <script src="{% static 'core/js/pdf_viewer.js' %}?v=role-annotations-20260504-2"></script>
 </body>
 </html>
