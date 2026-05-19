@@ -201,11 +201,19 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'django-insecure-_q5%&jqm$884a0b!an#-we^fx&22(%u+rdp1#7g83on=6f&moa'
 
-#  TEMPORARY DEMO CHANGE - Set DEBUG to True
-DEBUG = True  # Changed from False to True
+def get_env_bool(name, default=False):
+    value = os.getenv(name, str(default))
+    return value.lower() in ("true", "1", "yes", "on")
 
-#  TEMPORARY DEMO CHANGE - Allow all hosts for demo
-ALLOWED_HOSTS = ['*']  # Changed from specific hosts to allow all
+
+def get_env_list(name, default=""):
+    value = os.getenv(name, default)
+    return [item.strip() for item in value.split(",") if item.strip()]
+
+
+DEBUG = get_env_bool("DEBUG", True)
+
+ALLOWED_HOSTS = get_env_list("ALLOWED_HOSTS", "localhost,127.0.0.1")
 
 # Application definition
 
@@ -274,18 +282,29 @@ WSGI_APPLICATION = 'core.wsgi.application'
 #     }
 # }
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if DATABASE_URL:
+    DATABASES = {
+        "default": dj_database_url.config(
+            default=DATABASE_URL,
+            conn_max_age=600,
+            conn_health_checks=True,
+        )
     }
-}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
 
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = '/var/data/media'
 
-#  TEMPORARY DEMO CHANGE - Create media folder on startup
+# 🚨 TEMPORARY DEMO CHANGE - Create media folder on startup
 os.makedirs(MEDIA_ROOT, exist_ok=True)
 
 # Static files (CSS, JavaScript, Images)
@@ -318,7 +337,7 @@ AUTHENTICATION_BACKENDS = [
 ]
 
 # Email configuration 
-#  TEMPORARY DEMO CHANGE - Real email sending for demo
+# 🚨 TEMPORARY DEMO CHANGE - Real email sending for demo
 # EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
