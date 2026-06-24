@@ -213,7 +213,7 @@ def get_env_list(name, default=""):
 
 DEBUG = get_env_bool("DEBUG", True)
 
-ALLOWED_HOSTS = get_env_list("ALLOWED_HOSTS", "localhost,127.0.0.1")
+ALLOWED_HOSTS = get_env_list("ALLOWED_HOSTS", "localhost,127.0.0.1", 162.35.167.180)
 
 # Application definition
 
