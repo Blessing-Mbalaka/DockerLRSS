@@ -2249,6 +2249,25 @@ def assessor_randomized_snapshot(request, assessment_id):
     user = request.user
     user_role = getattr(user, "role", "")
     user_qualification = getattr(user, "qualification", None)
+    can_edit_snapshot = user_role == "assessor_dev"
+    dashboard_map = {
+        "admin": ("admin_dashboard", "Administrator Dashboard"),
+        "administrator": ("admin_dashboard", "Administrator Dashboard"),
+        "assessor_dev": ("assessor_developer", "Assessor Developer Dashboard"),
+        "moderator": ("moderator_developer", "Moderator Dashboard"),
+        "qcto": ("qcto_dashboard", "QCTO Dashboard"),
+        "qdd": ("qdd_developer_dashboard", "QDD Dashboard"),
+        "etqa": ("etqa_dashboard", "ETQA Dashboard"),
+        "assessment_center": ("assessment_center", "Assessment Center Dashboard"),
+        "internal_mod": ("internal_moderator_dashboard", "Internal Moderator Dashboard"),
+        "external_mod": ("external_moderator_dashboard", "External Moderator Dashboard"),
+        "assessor_marker": ("assessor_maker_dashboard", "Assessor Marker Dashboard"),
+        "learner": ("student_dashboard", "Learner Dashboard"),
+    }
+    dashboard_route, dashboard_label = dashboard_map.get(
+        user_role or "",
+        ("admin_dashboard", "Dashboard") if user.is_staff or user.is_superuser else ("default", "Dashboard"),
+    )
 
     if not (
         user.is_staff
@@ -2393,6 +2412,9 @@ def assessor_randomized_snapshot(request, assessment_id):
     if request.method == "POST":
         action = (request.POST.get("action") or "").strip().lower()
         refresh = request.POST.get("refresh") == "1"
+        if not can_edit_snapshot:
+            messages.error(request, "This randomized paper is read-only for your role.")
+            return redirect("assessor_randomized_snapshot", assessment_id=assessment.id)
         
         # Helper utilities for color-based stripping
         def _runs_have_color(runs, target_colors):
@@ -2743,7 +2765,7 @@ def assessor_randomized_snapshot(request, assessment_id):
             messages.success(
                 request, f"{assessment.eisa_id} forwarded to the moderator queue."
             )
-            return redirect("assessor_randomized_snapshot", assessment_id=assessment.id)
+            return redirect(dashboard_route)
 
         if action == "save_node_content":
             node_id = request.POST.get("node_id")
@@ -3375,6 +3397,9 @@ def assessor_randomized_snapshot(request, assessment_id):
         "memo_filename": assessment.memo_file.name if assessment.memo_file else None,
         "cover_box_content": cover_box_content,
         "randomized_source_tags": source_tags,
+        "dashboard_url": reverse(dashboard_route),
+        "dashboard_label": dashboard_label,
+        "can_edit_snapshot": can_edit_snapshot,
     }
     return render(request, "core/assessor-developer/randomized_snapshot.html", context)
 
@@ -4008,6 +4033,13 @@ def qcto_compliance(request):
 @login_required
 @require_http_methods(["GET", "POST"])
 def qcto_assessment_review(request):
+    user_role = getattr(request.user, "role", "")
+    if not (request.user.is_superuser or user_role in {"admin", "qcto"}):
+        messages.error(request, "Only QCTO users can review assessments at this step.")
+        if user_role == "qdd":
+            return redirect("qdd_developer_dashboard")
+        return redirect("default")
+
     if request.method == "POST":
         # Check if this is an advanced paper view request
         action = request.POST.get("action")
@@ -4030,16 +4062,20 @@ def qcto_assessment_review(request):
         action = request.POST.get("action")
 
         # QCTO approval needs a report; a reject/return can be sent back with comments only.
-        if action == "approve" and "qcto_report" not in request.FILES:
+        report_file = request.FILES.get("qcto_report")
+        if action == "approve" and not report_file and not assessment.qcto_report:
             messages.error(request, "Please upload a QCTO report before taking action.")
             return redirect("qcto_assessment_review")
 
-        report_file = request.FILES.get("qcto_report")
         comments = (
             request.POST.get("qcto_notes")
             or request.POST.get("return_comments")
             or ""
         ).strip()
+
+        if action == "reject" and not comments:
+            messages.error(request, "Please add comments before returning this assessment.")
+            return redirect("qcto_assessment_review")
 
         if report_file:
             # Validate file type (Word documents)
@@ -5652,8 +5688,12 @@ def assessor_maker_dashboard(request):
     """Dashboard view for markers to see student registry and exam submissions"""
 
     # Check if user is a marker
-    if request.user.role not in ["assessor_marker", "internal_mod", "external_mod"]:
-        return redirect("access_denied")
+    if not (
+        request.user.is_superuser
+        or request.user.role in ["admin", "assessor_marker", "internal_mod", "external_mod"]
+    ):
+        messages.error(request, "You do not have permission to access the marker dashboard.")
+        return redirect("default")
 
     # Get all registered students (learners with student numbers)
     students = (
@@ -5934,8 +5974,9 @@ def upload_offline_exam_submission(request):
     """View for Assessment Center to upload offline exam submissions"""
 
     # Check if user has permission (assessment center role)
-    if request.user.role not in ["assessment_center", "admin"]:
-        return redirect("access_denied")
+    if not (request.user.is_superuser or request.user.role in ["assessment_center", "admin"]):
+        messages.error(request, "You do not have permission to upload offline submissions.")
+        return redirect("default")
 
     # Get only present offline students
     offline_students = (
@@ -6058,7 +6099,10 @@ def quick_grade_submission(request, submission_id):
     """AJAX view for quick grading"""
 
     # Check if user is a marker
-    if request.user.role not in ["assessor_marker", "internal_mod", "external_mod"]:
+    if not (
+        request.user.is_superuser
+        or request.user.role in ["admin", "assessor_marker", "internal_mod", "external_mod"]
+    ):
         return JsonResponse({"success": False, "message": "Permission denied"})
 
     submission = get_object_or_404(ExamSubmission, id=submission_id)
@@ -6112,8 +6156,9 @@ def quick_grade_submission(request, submission_id):
 
 @login_required
 def internal_moderator_dashboard(request):
-    if request.user.role != "internal_mod":
-        return redirect("access_denied")
+    if not (request.user.is_superuser or request.user.role in ["admin", "internal_mod"]):
+        messages.error(request, "You do not have permission to access internal moderation.")
+        return redirect("default")
 
     # Show submissions that have been graded by marker but not internally moderated
     pending_submissions = (
@@ -6170,7 +6215,7 @@ def internal_moderator_dashboard(request):
 @login_required
 @require_POST
 def internal_grade_submission(request, submission_id):
-    if request.user.role != "internal_mod":
+    if not (request.user.is_superuser or request.user.role in ["admin", "internal_mod"]):
         return JsonResponse({"success": False, "message": "Permission denied"})
 
     submission = get_object_or_404(ExamSubmission, id=submission_id)
@@ -6231,8 +6276,9 @@ def internal_grade_submission(request, submission_id):
 
 @login_required
 def external_moderator_dashboard(request):
-    if request.user.role != "external_mod":
-        return redirect("access_denied")
+    if not (request.user.is_superuser or request.user.role in ["admin", "external_mod"]):
+        messages.error(request, "You do not have permission to access external moderation.")
+        return redirect("default")
 
     # Show submissions that have been internally moderated but not externally moderated
     pending_submissions = (
@@ -6291,7 +6337,7 @@ def external_moderator_dashboard(request):
 @login_required
 @require_POST
 def external_grade_submission(request, submission_id):
-    if request.user.role != "external_mod":
+    if not (request.user.is_superuser or request.user.role in ["admin", "external_mod"]):
         return JsonResponse({"success": False, "message": "Permission denied"})
 
     submission = get_object_or_404(ExamSubmission, id=submission_id)
@@ -6416,7 +6462,10 @@ def student_results(request):
 @login_required
 def upload_marked_paper(request, submission_id):
     """Handle marked paper upload for markers"""
-    if request.user.role not in ["assessor_marker", "internal_mod", "external_mod"]:
+    if not (
+        request.user.is_superuser
+        or request.user.role in ["admin", "assessor_marker", "internal_mod", "external_mod"]
+    ):
         return JsonResponse({"success": False, "message": "Access denied"})
 
     try:
@@ -6537,7 +6586,7 @@ def _qdd_dashboard_context(request):
     filter_qualification = None
     
     # Determine which qualification to filter by
-    if user.is_superuser or user_role in {'admin', 'moderator', 'qcto', 'etqa'}:
+    if user.is_superuser or user_role in {'admin', 'moderator', 'qcto', 'qdd', 'etqa'}:
         # Admins and elevated roles can see all or filter by selected qualification
         if selected_qualification_id:
             try:
@@ -6581,7 +6630,7 @@ def _qdd_dashboard_context(request):
     }
     
     # Get all qualifications for dropdown (only if user is admin)
-    all_qualifications = Qualification.objects.all() if (user.is_superuser or user_role in {'admin', 'moderator', 'qcto', 'etqa'}) else []
+    all_qualifications = Qualification.objects.all() if (user.is_superuser or user_role in {'admin', 'moderator', 'qcto', 'qdd', 'etqa'}) else []
 
     return {
         "pending_assessments": pending_assessments,
@@ -6623,7 +6672,7 @@ def qdd_moderate_assessment(request, eisa_id):
     user_role = getattr(user, 'role', '')
     
     # Allow if admin/superuser or qualification matches
-    if not (user.is_superuser or user_role in {'admin', 'qcto', 'etqa'} or user_qualification == assessment.qualification):
+    if not (user.is_superuser or user_role in {'admin', 'qcto', 'qdd', 'etqa'} or user_qualification == assessment.qualification):
         messages.error(request, "You do not have permission to moderate assessments outside your qualification.")
         return redirect("qdd_developer_dashboard")
 

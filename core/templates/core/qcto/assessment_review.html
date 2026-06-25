@@ -471,7 +471,9 @@
         }
 
         .qcto-form {
-            display: none;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
         }
 
         .btn-advanced {
@@ -816,40 +818,39 @@
                                     <!-- QCTO Decision -->
                                     <td>
                                         <div class="qcto-controls">
-                                            <div class="upload-wrapper">
-                                                <div class="upload-btn">
-                                                    <i class="fas fa-upload me-1"></i> Upload QCTO Report
-                                                </div>
-                                                <input type="file" id="qcto-report-{{ a.id }}" data-asmt-id="{{ a.id }}"
-                                                    accept=".doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                                                    class="qcto-upload">
-                                                <div class="file-name" id="qcto-file-name-{{ a.id }}">No file chosen
-                                                </div>
-                                            </div>
-
-                                            <!-- Hidden form for submission -->
                                             <form method="post" action="{% url 'qcto_assessment_review' %}"
                                                 class="qcto-form" id="qcto-form-{{ a.id }}"
                                                 enctype="multipart/form-data">
                                                 {% csrf_token %}
                                                 <input type="hidden" name="eisa_id" value="{{ a.eisa_id }}">
-                                                <input type="hidden" name="action" id="qcto-action-{{ a.id }}">
-                                                <textarea name="qcto_notes" id="qcto-notes-{{ a.id }}"
-                                                    class="form-control form-control-sm mt-2"
+                                                <div class="upload-wrapper">
+                                                    <div class="upload-btn">
+                                                        <i class="fas fa-upload me-1"></i> Upload QCTO Report
+                                                    </div>
+                                                    <input type="file" name="qcto_report" id="qcto-report-{{ a.id }}" data-asmt-id="{{ a.id }}"
+                                                        data-has-existing-report="{% if a.qcto_report %}1{% else %}0{% endif %}"
+                                                        accept=".doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                                                        class="qcto-upload">
+                                                    <div class="file-name" id="qcto-file-name-{{ a.id }}">
+                                                        {% if a.qcto_report %}Report already uploaded{% else %}No file chosen{% endif %}
+                                                    </div>
+                                                </div>
+
+                                                <textarea name="qcto_notes"
+                                                    id="qcto-visible-notes-{{ a.id }}"
+                                                    class="form-control form-control-sm"
                                                     rows="2"
                                                     placeholder="Comments for returned corrections"></textarea>
-                                                <input type="file" name="qcto_report" id="qcto-hidden-report-{{ a.id }}"
-                                                    style="display: none;">
-                                            </form>
 
-                                            <div class="action-buttons">
-                                                <button class="btn-approve" data-asmt-id="{{ a.id }}">
-                                                    <i class="fas fa-check me-1"></i> Approve
-                                                </button>
-                                                <button class="btn-reject" data-asmt-id="{{ a.id }}">
-                                                    <i class="fas fa-times me-1"></i> Reject
-                                                </button>
-                                            </div>
+                                                <div class="action-buttons">
+                                                    <button type="submit" name="action" value="approve" class="btn-approve" data-asmt-id="{{ a.id }}">
+                                                        <i class="fas fa-check me-1"></i> Approve
+                                                    </button>
+                                                    <button type="submit" name="action" value="reject" class="btn-reject" data-asmt-id="{{ a.id }}">
+                                                        <i class="fas fa-times me-1"></i> Reject
+                                                    </button>
+                                                </div>
+                                            </form>
                                         </div>
                                     </td>
                                 </tr>
@@ -902,48 +903,34 @@
                     const fileName = this.files[0] ? this.files[0].name : 'No file chosen';
                     document.getElementById(`qcto-file-name-${asmtId}`).textContent = fileName;
 
-                    // Also update the hidden form input
-                    const hiddenInput = document.getElementById(`qcto-hidden-report-${asmtId}`);
-                    // Create a new FileList-like object using DataTransfer
-                    const dataTransfer = new DataTransfer();
-                    dataTransfer.items.add(this.files[0]);
-                    hiddenInput.files = dataTransfer.files;
                 });
             });
 
             // Handle approve button clicks
             const approveButtons = document.querySelectorAll('.btn-approve');
             approveButtons.forEach(button => {
-                button.addEventListener('click', function () {
+                button.addEventListener('click', function (event) {
                     const asmtId = this.getAttribute('data-asmt-id');
                     const fileInput = document.querySelector(`#qcto-report-${asmtId}`);
 
-                    if (!fileInput.files[0]) {
+                    if (!fileInput.files[0] && fileInput.dataset.hasExistingReport !== '1') {
+                        event.preventDefault();
                         showModal('Action Required', 'Please upload a QCTO report before approving.');
-                        return;
                     }
-
-                    // Set the action and submit the form
-                    document.getElementById(`qcto-action-${asmtId}`).value = 'approve';
-                    document.getElementById(`qcto-form-${asmtId}`).submit();
                 });
             });
 
             // Handle reject button clicks
             const rejectButtons = document.querySelectorAll('.btn-reject');
             rejectButtons.forEach(button => {
-                button.addEventListener('click', function () {
+                button.addEventListener('click', function (event) {
                     const asmtId = this.getAttribute('data-asmt-id');
-                    const notesInput = document.getElementById(`qcto-notes-${asmtId}`);
+                    const notesInput = document.getElementById(`qcto-visible-notes-${asmtId}`);
                     if (notesInput && !notesInput.value.trim()) {
+                        event.preventDefault();
                         notesInput.focus();
                         showModal('Action Required', 'Please add comments before returning this assessment.');
-                        return;
                     }
-
-                    // Set the action and submit the form
-                    document.getElementById(`qcto-action-${asmtId}`).value = 'reject';
-                    document.getElementById(`qcto-form-${asmtId}`).submit();
                 });
             });
 

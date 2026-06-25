@@ -23,7 +23,8 @@ class RandomizedSnapshotEditingTests(TestCase):
             username="tester",
             email="tester@example.com",
             password="pass1234",
-            role="admin",
+            role="assessor_dev",
+            qualification=self.qual,
         )
         self.paper = Paper.objects.create(
             name="Randomized Paper",
@@ -167,3 +168,92 @@ class RandomizedSnapshotEditingTests(TestCase):
         self.assertIn("Question 1", combined)
         self.assertIn("Memo Answer:", combined)
         self.assertIn("Memo body text", combined)
+
+    def test_back_to_dashboard_button_is_role_smart(self):
+        assessor_dev = CustomUser.objects.create_user(
+            username="assessor-dev",
+            email="assessor-dev@example.com",
+            password="pass1234",
+            role="assessor_dev",
+            qualification=self.qual,
+        )
+        self.client.force_login(assessor_dev)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'href="/assessor-developer/"')
+        self.assertContains(response, "Back to Assessor Developer Dashboard")
+
+    def test_back_to_dashboard_button_uses_viewer_role_for_shared_access(self):
+        qcto = CustomUser.objects.create_user(
+            username="qcto-user",
+            email="qcto-user@example.com",
+            password="pass1234",
+            role="qcto",
+            qualification=self.qual,
+        )
+        self.client.force_login(qcto)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'href="/qcto/"')
+        self.assertContains(response, "Back to QCTO Dashboard")
+
+    def test_non_assessor_developer_sees_readonly_snapshot(self):
+        qcto = CustomUser.objects.create_user(
+            username="qcto-readonly",
+            email="qcto-readonly@example.com",
+            password="pass1234",
+            role="qcto",
+            qualification=self.qual,
+        )
+        self.client.force_login(qcto)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "Save Block")
+        self.assertNotContains(response, "Forward to Moderator")
+        self.assertNotContains(response, 'contenteditable="true"')
+
+    def test_non_assessor_developer_cannot_post_edits(self):
+        qcto = CustomUser.objects.create_user(
+            username="qcto-post",
+            email="qcto-post@example.com",
+            password="pass1234",
+            role="qcto",
+            qualification=self.qual,
+        )
+        self.client.force_login(qcto)
+
+        response = self.client.post(
+            self.url,
+            {
+                "action": "save_node_content",
+                "node_id": self.node.id,
+                "node_number": "9",
+                "node_marks": "99",
+                "node_text": "Should not save",
+                "node_content_json": json.dumps(
+                    [{"type": "text", "text": "Should not save"}]
+                ),
+            },
+        )
+
+        self.assertRedirects(response, self.url)
+        self.node.refresh_from_db()
+        self.assertEqual(self.node.number, "1")
+        self.assertEqual(self.node.marks, "5")
+        self.assertEqual(self.node.text, "Original text value")
+
+    def test_assessor_developer_forward_to_moderator_returns_to_dashboard(self):
+        self.assessment.memo_file.name = "memos/randomized/test-memo.docx"
+        self.assessment.save(update_fields=["memo_file"])
+
+        response = self.client.post(self.url, {"action": "forward_moderator"})
+
+        self.assertRedirects(response, reverse("assessor_developer"))
+        self.assessment.refresh_from_db()
+        self.assertEqual(self.assessment.status, "Submitted to Moderator")

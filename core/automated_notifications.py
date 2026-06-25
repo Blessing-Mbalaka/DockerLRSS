@@ -79,7 +79,7 @@ def _roles_for_status(status: str):
 
 
 def _recipient_user_queryset(recipient_roles, qualification=None):
-    unrestricted_roles = {'admin'}
+    unrestricted_roles = {'admin', 'qdd'}
     unrestricted = [role for role in recipient_roles if role in unrestricted_roles]
     restricted = [role for role in recipient_roles if role not in unrestricted_roles]
 
@@ -125,7 +125,7 @@ def build_user_notifications(user, limit=25, qualification=None):
             qualification_id = qualification
         elif isinstance(qualification, str):
             qualification_name = qualification
-    elif getattr(user, 'qualification_id', None):
+    elif getattr(user, 'qualification_id', None) and user.role not in {'admin', 'qdd'}:
         qualification_id = user.qualification_id
 
     qs = (

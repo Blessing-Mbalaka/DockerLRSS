@@ -32,12 +32,12 @@ from .models import ExamSubmission, GradeChangeLog, PdfAnnotation
 
 # ─── helpers ────────────────────────────────────────────────────────────────
 
-ANNOTATION_ROLES = {"assessor_marker", "internal_mod", "external_mod"}
+ANNOTATION_ROLES = {"admin", "assessor_marker", "internal_mod", "external_mod"}
 
 
 def _require_annotation_role(request):
     """Return None if OK, or a 403 JsonResponse."""
-    if request.user.role not in ANNOTATION_ROLES:
+    if not (request.user.is_superuser or request.user.role in ANNOTATION_ROLES):
         return JsonResponse({"success": False, "message": "Permission denied – annotation roles only."}, status=403)
     return None
 
@@ -227,7 +227,7 @@ def edit_marker_grade(request, submission_id):
     POST /grade/marker/<submission_id>/edit/
     Assessor Marker may update marks / total_marks / feedback for their tier.
     """
-    if request.user.role != "assessor_marker":
+    if not (request.user.is_superuser or request.user.role in {"admin", "assessor_marker"}):
         return JsonResponse({"success": False, "message": "Permission denied"}, status=403)
 
     submission = get_object_or_404(ExamSubmission, id=submission_id)
@@ -285,7 +285,7 @@ def edit_internal_grade(request, submission_id):
     POST /grade/internal/<submission_id>/edit/
     Internal Moderator may update internal_* fields.
     """
-    if request.user.role != "internal_mod":
+    if not (request.user.is_superuser or request.user.role in {"admin", "internal_mod"}):
         return JsonResponse({"success": False, "message": "Permission denied"}, status=403)
 
     submission = get_object_or_404(ExamSubmission, id=submission_id)
@@ -335,7 +335,7 @@ def edit_external_grade(request, submission_id):
     POST /grade/external/<submission_id>/edit/
     External Moderator may update external_* fields.
     """
-    if request.user.role != "external_mod":
+    if not (request.user.is_superuser or request.user.role in {"admin", "external_mod"}):
         return JsonResponse({"success": False, "message": "Permission denied"}, status=403)
 
     submission = get_object_or_404(ExamSubmission, id=submission_id)

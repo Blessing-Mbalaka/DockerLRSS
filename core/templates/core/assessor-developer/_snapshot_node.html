@@ -13,6 +13,7 @@
     </div>
     <div class="snapshot-node__controls">
       {% if node.marks %}<span class="snapshot-node__marks">{{ node.marks }} marks</span>{% endif %}
+      {% if can_edit_snapshot %}
       <div class="snapshot-node__actions">
         <form method="post" class="d-inline">
           {% csrf_token %}
@@ -35,6 +36,7 @@
           </form>
         {% endif %}
       </div>
+      {% endif %}
     </div>
   </div>
 
@@ -45,8 +47,8 @@
       </div>
     {% else %}
       <div class="snapshot-node__text editable-block"
-           contenteditable="true"
-           data-editable="true"
+           contenteditable="{{ can_edit_snapshot|yesno:'true,false' }}"
+           data-editable="{{ can_edit_snapshot|yesno:'true,false' }}"
            data-text-block="true">
         {{ node.text }}
       </div>
@@ -72,8 +74,8 @@
         {% else %}
           {% with editable=block|is_text_block %}
           <div class="editable-block"
-               contenteditable="{{ editable|yesno:'true,false' }}"
-               data-editable="{{ editable|yesno:'true,false' }}"
+               contenteditable="{% if can_edit_snapshot and editable %}true{% else %}false{% endif %}"
+               data-editable="{% if can_edit_snapshot and editable %}true{% else %}false{% endif %}"
                data-block-index="{{ forloop.counter0 }}"
                data-block-type="{{ block.type|default_if_none:'text' }}">
             {{ block|render_block }}
@@ -92,7 +94,7 @@
       {% endfor %}
     </div>
   {% endif %}
-  {% if node_type_lower != 'cover_page' %}
+  {% if can_edit_snapshot and node_type_lower != 'cover_page' %}
     <form method="post" class="snapshot-node__editor" data-node-form>
       {% csrf_token %}
       <input type="hidden" name="node_id" value="{{ node.id }}">

@@ -1,3 +1,6 @@
+import shutil
+import tempfile
+
 from django.contrib.auth import get_user_model
 from django.core import mail
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -14,6 +17,12 @@ User = get_user_model()
 @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
 class AssessmentReturnFlowTests(TestCase):
     def setUp(self):
+        self.media_root = tempfile.mkdtemp()
+        media_override = override_settings(MEDIA_ROOT=self.media_root)
+        media_override.enable()
+        self.addCleanup(media_override.disable)
+        self.addCleanup(shutil.rmtree, self.media_root, ignore_errors=True)
+
         self.qualification = Qualification.objects.create(
             name="Workflow Qualification",
             saqa_id="WF123",
@@ -166,6 +175,92 @@ class AssessmentReturnFlowTests(TestCase):
         self.assessment.refresh_from_db()
         self.assertEqual(self.assessment.status, "QDD Review")
         self.assertEqual(self.assessment.qcto_notes, "Approved.")
+
+    def test_qcto_approval_uses_existing_report_if_previous_submit_uploaded_it(self):
+        self.assessment.status = "Submitted to QCTO"
+        self.assessment.qcto_report.save(
+            "existing_qcto_report.docx",
+            SimpleUploadedFile(
+                "existing_qcto_report.docx",
+                b"existing report",
+                content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            ),
+        )
+        self.client.force_login(self.qcto)
+
+        response = self.client.post(
+            reverse("qcto_assessment_review"),
+            {
+                "eisa_id": self.assessment.eisa_id,
+                "action": "approve",
+                "qcto_notes": "Approved with existing report.",
+            },
+        )
+
+        self.assertRedirects(response, reverse("qcto_assessment_review"))
+        self.assessment.refresh_from_db()
+        self.assertEqual(self.assessment.status, "QDD Review")
+        self.assertEqual(self.assessment.qcto_notes, "Approved with existing report.")
+
+    def test_qdd_dashboard_shows_qdd_review_items_without_user_qualification(self):
+        qdd_without_qualification = User.objects.create_user(
+            username="qdd-unassigned@example.com",
+            email="qdd-unassigned@example.com",
+            password="Pass12345",
+            role="qdd",
+            is_active=True,
+        )
+        self.assessment.status = "QDD Review"
+        self.assessment.save(update_fields=["status"])
+        self.client.force_login(qdd_without_qualification)
+
+        response = self.client.get(reverse("qdd_developer_dashboard"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, self.assessment.eisa_id)
+        self.assertContains(response, "QDD Review")
+
+    def test_qdd_notifications_show_qdd_review_items_without_user_qualification(self):
+        qdd_without_qualification = User.objects.create_user(
+            username="qdd-notifications@example.com",
+            email="qdd-notifications@example.com",
+            password="Pass12345",
+            role="qdd",
+            is_active=True,
+        )
+        self.assessment.status = "QDD Review"
+        self.assessment.save(update_fields=["status"])
+
+        notifications, _filters = build_user_notifications(qdd_without_qualification)
+
+        self.assertIn(
+            self.assessment.eisa_id,
+            {note["eisa_id"] for note in notifications},
+        )
+
+    def test_qdd_user_cannot_use_qcto_review_page(self):
+        self.assessment.status = "Submitted to QCTO"
+        self.assessment.save(update_fields=["status"])
+        self.client.force_login(self.qdd)
+
+        response = self.client.get(reverse("qcto_assessment_review"))
+
+        self.assertRedirects(response, reverse("qdd_developer_dashboard"))
+
+    def test_qcto_review_page_shows_visible_return_comments_field(self):
+        self.assessment.status = "Submitted to QCTO"
+        self.assessment.save(update_fields=["status"])
+        self.client.force_login(self.qcto)
+
+        response = self.client.get(reverse("qcto_assessment_review"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f'id="qcto-visible-notes-{self.assessment.id}"')
+        self.assertContains(response, "Comments for returned corrections")
+        self.assertContains(response, 'name="qcto_notes"')
+        self.assertContains(response, 'name="qcto_report"')
+        self.assertContains(response, 'name="action" value="approve"')
+        self.assertContains(response, 'name="action" value="reject"')
 
     def test_all_configured_statuses_email_and_dashboard_notify_target_roles(self):
         role_users = {
