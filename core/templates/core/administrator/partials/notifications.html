@@ -1,5 +1,5 @@
 {# Partial: Workflow notifications filtered by qualification + status #}
-{% with notifications=dashboard_notifications|default:[] filters=dashboard_notification_filters|default:{} %}
+{% with notifications=dashboard_notifications filters=dashboard_notification_filters %}
 <style>
   #assessment-notifications {
     background: white;
@@ -106,7 +106,12 @@
     </div>
     <div class="d-flex flex-wrap notification-panel__filters mt-3 mt-md-0">
       <select class="form-select form-select-sm" data-filter="qualification">
-        <option value="{{ user.qualification.id }}" selected>{{ user.qualification.name }}</option>
+        <option value="">All qualifications</option>
+        {% for qualification in filters.qualifications %}
+        <option value="{{ qualification.id }}" {% if user.qualification.id == qualification.id %}selected{% endif %}>
+          {{ qualification.name }}
+        </option>
+        {% endfor %}
       </select>
       <select class="form-select form-select-sm" data-filter="status">
         <option value="">All statuses</option>
@@ -182,7 +187,7 @@
     const qualificationFilter = panel.querySelector('[data-filter="qualification"]');
     const statusFilter = panel.querySelector('[data-filter="status"]');
     const searchFilter = panel.querySelector('[data-filter="search"]');
-    const counter = panel.querySelector('[data-visible_count]');
+    const counter = panel.querySelector('[data-visible-count]');
     const emptyBlocks = panel.querySelectorAll('[data-empty-state]');
     const refreshBtn = panel.querySelector('[data-action="refresh-notifications"]');
 

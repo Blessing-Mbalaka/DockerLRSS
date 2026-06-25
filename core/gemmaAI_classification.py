@@ -2,6 +2,9 @@ import re
 import requests
 import json
 
+
+
+
 # Noise and trivial-content detection patterns
 noise_patterns = [
     r'^page\s+\d+',

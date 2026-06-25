@@ -1,4 +1,18 @@
 qualifications:
+  Test Documentation:
+    modules:
+      "1A":
+        letters: ["A", "B"]
+        cover_title: "Test Documentation Module 1A"
+      "1B":
+        letters: ["A", "B"]
+        cover_title: "Test Documentation Module 1B"
+      "2A":
+        letters: ["A", "B"]
+        cover_title: "Test Documentation Module 2A"
+      "2B":
+        letters: ["A", "B"]
+        cover_title: "Test Documentation Module 2B"
   Maintenance Planner:
     modules:
       "1A":

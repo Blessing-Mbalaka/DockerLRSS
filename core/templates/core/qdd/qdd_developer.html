@@ -774,6 +774,8 @@
             </div>
             {% endif %}
 
+            {% include "core/administrator/partials/notifications.html" %}
+
             <!-- Qualification Filter (Admin only) -->
             {% if user.is_superuser or user.role == 'admin' %}
             <div class="card shadow mt-3">

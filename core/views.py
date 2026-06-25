@@ -3543,6 +3543,24 @@ def assessor_developer_paper(request, paper_id):
     return extractor_views.paper_view(request, paper_id)
 
 
+def _record_workflow_feedback(assessment, recipient_label, message, status=Feedback.STATUS_PENDING):
+    """Persist reviewer comments without interrupting the status transition."""
+    comment = (message or "").strip()
+    if not comment:
+        return None
+
+    feedback = Feedback.objects.create(
+        assessment=assessment,
+        to_user=recipient_label,
+        message=comment,
+        status=status,
+    )
+    existing_comment = (assessment.comment or "").strip()
+    assessment.comment = f"{existing_comment}\n\n{comment}".strip() if existing_comment else comment
+    assessment.save(update_fields=["comment"])
+    return feedback
+
+
 @require_http_methods(["GET", "POST"])
 def upload_assessment(request):
     """Enhanced upload using robust extractor"""
@@ -3748,12 +3766,20 @@ def moderate_assessment(request, eisa_id):
         return redirect("moderator_review_list")
 
     if action == "return":
+        notes = (
+            request.POST.get("moderator_notes")
+            or request.POST.get("return_comments")
+            or ""
+        ).strip()
+        _record_workflow_feedback(assessment, "Assessor/Developer", notes)
+        assessment.moderator_notes = notes
         assessment.status = "Returned for Changes"
         assessment.forward_to_moderator = False
         assessment.status_changed_at = now()
         assessment.status_changed_by = request.user
         assessment.save(
             update_fields=[
+                "moderator_notes",
                 "status",
                 "forward_to_moderator",
                 "status_changed_at",
@@ -3881,12 +3907,14 @@ def qcto_moderate_assessment(request, eisa_id):
                 request, f"{assessment.eisa_id} approved and forwarded to QDD for review."
             )
         elif decision == "reject":
-            assessment.status = "Rejected"
+            _record_workflow_feedback(assessment, "Moderator", notes)
+            assessment.status = "Submitted to Moderator"
+            assessment.forward_to_moderator = True
             assessment.status_changed_at = now()
             assessment.status_changed_by = (
                 request.user if request.user.is_authenticated else None
             )
-            messages.success(request, f"{assessment.eisa_id} has been rejected.")
+            messages.success(request, f"{assessment.eisa_id} returned to Moderator for changes.")
         else:
             messages.error(request, "Invalid decision.")
             return redirect("qcto_moderate_assessment", eisa_id=eisa_id)
@@ -3895,6 +3923,7 @@ def qcto_moderate_assessment(request, eisa_id):
         assessment.save(
             update_fields=[
                 "status",
+                "forward_to_moderator",
                 "status_changed_at",
                 "status_changed_by",
                 "qcto_notes",
@@ -4000,38 +4029,61 @@ def qcto_assessment_review(request):
         # Get the action (approve or reject)
         action = request.POST.get("action")
 
-        # Check if a file was uploaded
-        if "qcto_report" not in request.FILES:
+        # QCTO approval needs a report; a reject/return can be sent back with comments only.
+        if action == "approve" and "qcto_report" not in request.FILES:
             messages.error(request, "Please upload a QCTO report before taking action.")
             return redirect("qcto_assessment_review")
 
-        report_file = request.FILES["qcto_report"]
+        report_file = request.FILES.get("qcto_report")
+        comments = (
+            request.POST.get("qcto_notes")
+            or request.POST.get("return_comments")
+            or ""
+        ).strip()
 
-        # Validate file type (Word documents)
-        allowed_extensions = [".doc", ".docx"]
-        file_extension = os.path.splitext(report_file.name)[1].lower()
+        if report_file:
+            # Validate file type (Word documents)
+            allowed_extensions = [".doc", ".docx"]
+            file_extension = os.path.splitext(report_file.name)[1].lower()
 
-        if file_extension not in allowed_extensions:
-            messages.error(request, "Please upload a Word document (.doc or .docx).")
-            return redirect("qcto_assessment_review")
+            if file_extension not in allowed_extensions:
+                messages.error(request, "Please upload a Word document (.doc or .docx).")
+                return redirect("qcto_assessment_review")
 
-        # Save the QCTO report
-        assessment.qcto_report.save(
-            f"qcto_report_{eisa_id}{file_extension}", report_file
-        )
+            # Save the QCTO report
+            assessment.qcto_report.save(
+                f"qcto_report_{eisa_id}{file_extension}", report_file
+            )
 
         # Update status based on action
         if action == "approve":
             assessment.status = "QDD Review"
+            assessment.qcto_notes = comments
+            assessment.status_changed_at = now()
+            assessment.status_changed_by = request.user
             messages.success(request, f"{eisa_id} approved and forwarded to QDD for review.")
         elif action == "reject":
-            assessment.status = "Rejected"
-            messages.success(request, f"{eisa_id} has been rejected.")
+            _record_workflow_feedback(assessment, "Moderator", comments)
+            assessment.status = "Submitted to Moderator"
+            assessment.forward_to_moderator = True
+            assessment.qcto_notes = comments
+            assessment.status_changed_at = now()
+            assessment.status_changed_by = request.user
+            messages.success(request, f"{eisa_id} returned to Moderator for changes.")
         else:
             messages.error(request, "Invalid decision.")
             return redirect("qcto_assessment_review")
 
-        assessment.save()
+        update_fields = [
+            "status",
+            "forward_to_moderator",
+            "qcto_notes",
+            "status_changed_at",
+            "status_changed_by",
+        ]
+        if report_file:
+            update_fields.append("qcto_report")
+        assessment.save(update_fields=update_fields)
         return redirect("qcto_assessment_review")
 
     # GET: only show those pending QCTO
@@ -6608,11 +6660,19 @@ def qdd_moderate_assessment(request, eisa_id):
 
     if action == "return":
         # Return to Moderator
+        comments = (
+            request.POST.get("moderator_notes")
+            or request.POST.get("return_comments")
+            or ""
+        ).strip()
+        _record_workflow_feedback(assessment, "Moderator", comments)
+        assessment.moderator_notes = comments
         assessment.status = "pending_moderation"
         assessment.status_changed_at = now()
         assessment.status_changed_by = request.user
         assessment.save(
             update_fields=[
+                "moderator_notes",
                 "status",
                 "status_changed_at",
                 "status_changed_by",

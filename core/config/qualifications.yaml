@@ -19,6 +19,16 @@
       "name": "Test",
       "modules": [],
       "saqa_id": "18292"
+    },
+    {
+      "name": "Test Documentation",
+      "saqa_id": "99001",
+      "modules": [
+        {"code": "1A", "label": "Module 1A - General Theory"},
+        {"code": "1B", "label": "Module 1B - Applied Practice"},
+        {"code": "2A", "label": "Module 2A - Technical Skills"},
+        {"code": "2B", "label": "Module 2B - Safety and Compliance"}
+      ]
     }
   ]
 }

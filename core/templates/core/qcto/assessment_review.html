@@ -834,6 +834,10 @@
                                                 {% csrf_token %}
                                                 <input type="hidden" name="eisa_id" value="{{ a.eisa_id }}">
                                                 <input type="hidden" name="action" id="qcto-action-{{ a.id }}">
+                                                <textarea name="qcto_notes" id="qcto-notes-{{ a.id }}"
+                                                    class="form-control form-control-sm mt-2"
+                                                    rows="2"
+                                                    placeholder="Comments for returned corrections"></textarea>
                                                 <input type="file" name="qcto_report" id="qcto-hidden-report-{{ a.id }}"
                                                     style="display: none;">
                                             </form>
@@ -930,10 +934,10 @@
             rejectButtons.forEach(button => {
                 button.addEventListener('click', function () {
                     const asmtId = this.getAttribute('data-asmt-id');
-                    const fileInput = document.querySelector(`#qcto-report-${asmtId}`);
-
-                    if (!fileInput.files[0]) {
-                        showModal('Action Required', 'Please upload a QCTO report before rejecting.');
+                    const notesInput = document.getElementById(`qcto-notes-${asmtId}`);
+                    if (notesInput && !notesInput.value.trim()) {
+                        notesInput.focus();
+                        showModal('Action Required', 'Please add comments before returning this assessment.');
                         return;
                     }
 

@@ -228,6 +228,8 @@ class Assessment(models.Model):
     )
     
     comment = models.TextField(blank=True)
+    moderator_notes = models.TextField(blank=True)
+    qcto_notes = models.TextField(blank=True)
     forward_to_moderator = models.BooleanField(default=False)
     moderator_report = models.FileField(
         upload_to="moderator_reports/", 

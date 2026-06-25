@@ -724,6 +724,8 @@
             </div>
             {% endif %}
 
+            {% include "core/administrator/partials/notifications.html" %}
+
             <!-- Tab Navigation -->
             <div class="card shadow mt-3">
                 <div class="card-header" style="background: linear-gradient(to right, #3a063a, #580658); color: white;">
@@ -829,19 +831,23 @@
                                                             <input type="file" name="moderator_report"
                                                                 id="file-{{ asmt.id }}"
                                                                 accept=".doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                                                                class="moderator-report-input" required>
+                                                                class="moderator-report-input">
                                                             <label for="file-{{ asmt.id }}" class="file-input-label">
                                                                 <i class="fas fa-upload"></i>
                                                                 <span class="upload-text">Upload Report</span>
                                                             </label>
                                                             <div class="file-name-display" id="filename-{{ asmt.id }}"></div>
                                                         </div>
+                                                        <textarea name="return_comments" rows="2"
+                                                            class="form-control form-control-sm"
+                                                            placeholder="Comments for returned corrections"></textarea>
                                                         <div class="d-flex gap-2">
                                                             <button type="submit" name="action" value="approve"
                                                                 class="btn btn-sm btn-success text-nowrap">
                                                                 <i class="fas fa-check me-1"></i> Approve
                                                             </button>
                                                             <button type="submit" name="action" value="return"
+                                                                formnovalidate
                                                                 class="btn btn-sm btn-outline-danger text-nowrap">
                                                                 <i class="fas fa-undo me-1"></i> Return
                                                             </button>

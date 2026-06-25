@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.core.mail import send_mail
+from django.db.models import Q
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 from django.utils.text import slugify
@@ -15,6 +16,12 @@ STATUS_TEMPLATES = {
         'message': 'An assessment has been submitted and is awaiting your moderation review.',
         'recipient_roles': ['moderator'],
     },
+    'pending_moderation': {
+        'subject': 'Assessment Returned to Moderation',
+        'personal_subject': 'Assessment Returned for Your Review',
+        'message': 'An assessment has been returned to moderation for further review.',
+        'recipient_roles': ['moderator'],
+    },
     'Submitted to QCTO': {
         'subject': 'Assessment Submitted for QCTO Review',
         'personal_subject': 'Assessment Awaiting QCTO Review',
@@ -26,6 +33,12 @@ STATUS_TEMPLATES = {
         'personal_subject': 'Assessment Awaiting ETQA Approval',
         'message': 'An assessment has been approved and is now awaiting ETQA final approval.',
         'recipient_roles': ['etqa'],
+    },
+    'QDD Review': {
+        'subject': 'Assessment Submitted for QDD Review',
+        'personal_subject': 'Assessment Awaiting QDD Review',
+        'message': 'An assessment has been approved by QCTO and is now awaiting QDD review.',
+        'recipient_roles': ['qdd'],
     },
     'Returned for Changes': {
         'subject': 'Assessment Returned for Changes',
@@ -63,6 +76,25 @@ STATUS_TEMPLATES = {
 def _roles_for_status(status: str):
     template = STATUS_TEMPLATES.get(status) or {}
     return template.get('recipient_roles', [])
+
+
+def _recipient_user_queryset(recipient_roles, qualification=None):
+    unrestricted_roles = {'admin'}
+    unrestricted = [role for role in recipient_roles if role in unrestricted_roles]
+    restricted = [role for role in recipient_roles if role not in unrestricted_roles]
+
+    query = Q()
+    if unrestricted:
+        query |= Q(role__in=unrestricted)
+    if restricted:
+        restricted_query = Q(role__in=restricted)
+        if qualification:
+            restricted_query &= Q(qualification__name__icontains=qualification)
+        query |= restricted_query
+
+    if not query:
+        return CustomUser.objects.none()
+    return CustomUser.objects.filter(query).exclude(is_superuser=True)
 
 
 def build_user_notifications(user, limit=25, qualification=None):
@@ -168,11 +200,7 @@ def send_status_notifications(status, assessment_id=None, role=None, qualificati
     if role:
         recipient_roles = [role]
 
-    query_filter = {'role__in': recipient_roles}
-    if qualification:
-        query_filter['qualification__name__icontains'] = qualification
-
-    users = CustomUser.objects.filter(**query_filter).exclude(is_superuser=True)
+    users = _recipient_user_queryset(recipient_roles, qualification)
     if not users.exists():
         print(f"No users found with roles: {recipient_roles}")
         return False
@@ -222,11 +250,7 @@ def send_personalized_status_notifications(status, assessment_id=None, role=None
     if not recipient_roles:
         return False
 
-    query_filter = {'role__in': recipient_roles}
-    if qualification:
-        query_filter['qualification__name__icontains'] = qualification
-
-    users = CustomUser.objects.filter(**query_filter).exclude(is_superuser=True)
+    users = _recipient_user_queryset(recipient_roles, qualification)
     if not users.exists():
         return False
 
@@ -238,6 +262,10 @@ def send_personalized_status_notifications(status, assessment_id=None, role=None
             pass
 
     template_meta = STATUS_TEMPLATES.get(status, {})
+    feedback_text = ''
+    if assessment:
+        latest_feedback = assessment.feedbacks.order_by('-created_at').first()
+        feedback_text = latest_feedback.message if latest_feedback else ''
 
     for user in users:
         context = {
@@ -246,6 +274,7 @@ def send_personalized_status_notifications(status, assessment_id=None, role=None
             'assessment': assessment,
             'qualification': qualification,
             'timestamp': now(),
+            'feedback_text': feedback_text,
         }
         if extra_context:
             context.update(extra_context)
