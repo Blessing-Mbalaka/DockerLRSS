@@ -6400,22 +6400,15 @@ from django.shortcuts import render
 from .models import ExamSubmission, Assessment
 
 
-@login_required
-def student_results(request):
-    # Get the current student
-    student = request.user
-
-    # Get all submissions for this student, ordered by most recent
+def _build_student_submission_results(student):
     submissions = (
         ExamSubmission.objects.filter(student=student)
-        .select_related("paper", "assessment")
+        .select_related("paper", "assessment", "assessment__qualification")
         .order_by("-submitted_at")
     )
 
-    # Calculate final marks and status for each submission
     results = []
     for submission in submissions:
-        # Determine the final marks based on grading progression
         if submission.external_marks is not None:
             final_marks = submission.external_marks
             final_total = submission.external_total_marks
@@ -6433,7 +6426,6 @@ def student_results(request):
             final_total = submission.total_marks
             status = "Pending"
 
-        # Calculate percentage if marks are available
         percentage = None
         if final_marks is not None and final_total:
             percentage = (final_marks / final_total) * 100
@@ -6445,17 +6437,53 @@ def student_results(request):
                 "final_total": final_total,
                 "percentage": percentage,
                 "status": status,
-                "passed": (
-                    percentage >= 50 if percentage else False
-                ),  # Assuming 50% pass mark
+                "passed": percentage >= 50 if percentage is not None else False,
             }
         )
+
+    return results
+
+
+@login_required
+def student_results(request):
+    student = request.user
+    results = _build_student_submission_results(student)
 
     context = {
         "results": results,
         "student": student,
     }
     return render(request, "core/student/results.html", context)
+
+
+@login_required
+def student_graded_assessments(request):
+    student = request.user
+    all_results = _build_student_submission_results(student)
+    graded_results = [result for result in all_results if result["final_marks"] is not None]
+
+    percentages = [result["percentage"] for result in graded_results if result["percentage"] is not None]
+    summary = {
+        "graded_count": len(graded_results),
+        "finalized_count": sum(1 for result in graded_results if result["status"] == "Finalized"),
+        "with_marked_paper_count": sum(
+            1
+            for result in graded_results
+            if (
+                result["submission"].marked_paper
+                or result["submission"].internal_marked_paper
+                or result["submission"].external_marked_paper
+            )
+        ),
+        "average_percentage": (sum(percentages) / len(percentages)) if percentages else None,
+    }
+
+    context = {
+        "graded_results": graded_results,
+        "student": student,
+        "summary": summary,
+    }
+    return render(request, "core/Marking_Logic/student_graded_assessments.html", context)
 
 
 # New view############

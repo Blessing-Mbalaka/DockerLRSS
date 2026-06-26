@@ -211,7 +211,7 @@ def get_env_list(name, default=""):
     return [item.strip() for item in value.split(",") if item.strip()]
 
 
-DEBUG = get_env_bool("DEBUG", True)
+DEBUG = get_env_bool("DEBUG", False)
 
 ALLOWED_HOSTS = get_env_list("ALLOWED_HOSTS", "localhost,127.0.0.1,162.35.167.180")
 
@@ -265,12 +265,12 @@ WSGI_APPLICATION = 'core.wsgi.application'
 # Database
 
 
-# DATABASES = {
-#     'default': {
-#          'ENGINE': 'django.db.backends.sqlite3',
-#         'NAME': BASE_DIR / 'db.sqlite3',
-#    }
-#  }
+DATABASES = {
+     'default': {
+          'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+    }
+  }
 # DATABASES = {
 #     'default': {
 #         'ENGINE': 'django.db.backends.postgresql',
@@ -282,23 +282,23 @@ WSGI_APPLICATION = 'core.wsgi.application'
 #     }
 # }
 
-DATABASE_URL = os.getenv("DATABASE_URL")
+# DATABASE_URL = os.getenv("DATABASE_URL")
 
-if DATABASE_URL:
-    DATABASES = {
-        "default": dj_database_url.config(
-            default=DATABASE_URL,
-            conn_max_age=600,
-            conn_health_checks=True,
-        )
-    }
-else:
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "db.sqlite3",
-        }
-    }
+# if DATABASE_URL:
+#     DATABASES = {
+#         "default": dj_database_url.config(
+#             default=DATABASE_URL,
+#             conn_max_age=600,
+#             conn_health_checks=True,
+#         )
+#     }
+# else:
+#     DATABASES = {
+#         "default": {
+#             "ENGINE": "django.db.backends.sqlite3",
+#             "NAME": BASE_DIR / "db.sqlite3",
+#         }
+#     }
 
 
 MEDIA_URL = '/media/'

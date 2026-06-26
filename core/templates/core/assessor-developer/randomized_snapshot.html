@@ -399,10 +399,6 @@
       </div>
     </div>
     {% endif %}
-    <div class="mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
-      <a href="{{ dashboard_url }}" class="btn btn-outline-secondary btn-sm">&larr; Back to {{ dashboard_label }}</a>
-    </div>
-
     <div class="snapshot-card">
       <div class="snapshot-header">
         <div>
@@ -423,6 +419,7 @@
           {% endif %}
         </div>
         <div class="snapshot-actions">
+          <a href="{{ dashboard_url }}" class="btn btn-outline-secondary btn-sm">&larr; Back to {{ dashboard_label }}</a>
           <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal"
             data-bs-target="#snapshotModal">View Saved Randomized Papers</button>
           {% if can_edit_snapshot %}
@@ -557,10 +554,6 @@
           <div class="mt-2">
             <strong>File:</strong>
             <span class="memo-filename">{{ memo_filename }}</span>
-            <a href="{% url 'download_memo' assessment.id %}" class="btn btn-sm btn-outline-primary ms-2"
-              target="_blank">
-              Download Memo
-            </a>
           </div>
         </div>
 
@@ -658,10 +651,6 @@
             class="btn btn-info btn-lg text-white w-100">Refresh Randomized Paper</button> -->
         </div>
         <div class="w-100 mt-2 text-end d-flex gap-2 justify-content-end flex-wrap">
-          <a href="{% url 'download_randomized_pdf' assessment.id %}?format=pdf" class="btn btn-outline-secondary"
-            data-role="download-pdf">
-            <i class="fa fa-download"></i> Download PDF
-          </a>
           <a href="{% url 'download_randomized_pdf' assessment.id %}?format=docx" class="btn btn-outline-primary">
             <i class="fa fa-file-word-o"></i> Download Word (.docx)
           </a>
@@ -679,10 +668,6 @@
       </form>
       {% else %}
       <div class="mt-3 text-end d-flex gap-2 justify-content-end flex-wrap">
-        <a href="{% url 'download_randomized_pdf' assessment.id %}?format=pdf" class="btn btn-outline-secondary"
-          data-role="download-pdf">
-          <i class="fa fa-download"></i> Download PDF
-        </a>
         <a href="{% url 'download_randomized_pdf' assessment.id %}?format=docx" class="btn btn-outline-primary">
           <i class="fa fa-file-word-o"></i> Download Word (.docx)
         </a>

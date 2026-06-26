@@ -4,3 +4,5 @@
 db.sqlite3 
 .DS\_Store 
 **.venv/
+media/
+var/

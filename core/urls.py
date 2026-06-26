@@ -164,6 +164,7 @@ urlpatterns = [
   # redirections for assessor marker
     path('assessor_marker/dashboard/', views.assessor_maker_dashboard, name='assessor_maker_dashboard'),
     path('student/results/', views.student_results, name='student_results'),
+    path('student/graded-assessments/', views.student_graded_assessments, name='student_graded_assessments'),
     path('upload-marked-paper/<int:submission_id>/', views.upload_marked_paper, name='upload_marked_paper'),
 
     ############nNEW URLS#########################################

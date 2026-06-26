@@ -7,7 +7,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
-from core.models import Assessment, ExamSubmission, Paper, Qualification
+from core.models import Assessment, ExamSubmission, Paper, PdfAnnotation, Qualification
 
 
 User = get_user_model()
@@ -61,6 +61,13 @@ class MarkerJsonEndpointTests(TestCase):
             role="admin",
             is_superuser=True,
             is_staff=True,
+            is_active=True,
+        )
+        self.internal_moderator = User.objects.create_user(
+            username="marker-json-internal",
+            email="marker-json-internal@example.com",
+            password="Pass12345",
+            role="internal_mod",
             is_active=True,
         )
         self.submission = ExamSubmission.objects.create(
@@ -174,3 +181,40 @@ class MarkerJsonEndpointTests(TestCase):
 
         payload = self.assertJsonResponse(response)
         self.assertTrue(payload["success"])
+
+    def test_student_graded_assessments_page_resolves(self):
+        self.client.force_login(self.learner)
+
+        response = self.client.get(
+            reverse("student_graded_assessments"),
+            HTTP_HOST="127.0.0.1",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "My Graded Assessments")
+
+    def test_internal_moderator_cannot_delete_marker_annotation(self):
+        annotation = PdfAnnotation.objects.create(
+            submission=self.submission,
+            created_by=self.marker,
+            role=self.marker.role,
+            ann_type="comment",
+            page=1,
+            x=0.25,
+            y=0.4,
+            text="Marker-owned annotation",
+        )
+
+        self.client.force_login(self.internal_moderator)
+        response = self.client.post(
+            reverse("delete_annotations_bulk"),
+            data=json.dumps({"ids": [annotation.id]}),
+            content_type="application/json",
+            HTTP_HOST="127.0.0.1",
+        )
+
+        payload = self.assertJsonResponse(response)
+        self.assertTrue(payload["success"])
+        self.assertEqual(payload["deleted_count"], 0)
+        self.assertEqual(payload["skipped_count"], 1)
+        self.assertTrue(PdfAnnotation.objects.filter(id=annotation.id).exists())

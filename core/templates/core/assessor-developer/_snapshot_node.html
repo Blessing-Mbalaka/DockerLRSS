@@ -20,14 +20,7 @@
           <input type="hidden" name="node_id" value="{{ node.id }}">
           <button type="submit" name="action" value="delete_node" class="btn btn-sm btn-outline-danger">Delete</button>
         </form>
-        {% if node_type_lower != 'cover_page' and node.node_type != 'instruction' %}
-          <form method="post" class="d-inline">
-            {% csrf_token %}
-            <input type="hidden" name="node_id" value="{{ node.id }}">
-            <input type="hidden" name="target_type" value="instruction">
-            <button type="submit" name="action" value="convert_node" class="btn btn-sm btn-outline-secondary">Mark Instruction</button>
-          </form>
-        {% elif node_type_lower != 'cover_page' and node.node_type != 'question' %}
+        {% if node_type_lower != 'cover_page' and node.node_type != 'question' %}
           <form method="post" class="d-inline">
             {% csrf_token %}
             <input type="hidden" name="node_id" value="{{ node.id }}">
