@@ -211,7 +211,7 @@ def get_env_list(name, default=""):
     return [item.strip() for item in value.split(",") if item.strip()]
 
 
-DEBUG = get_env_bool("DEBUG", True)
+DEBUG = get_env_bool("DEBUG", False)
 
 ALLOWED_HOSTS = get_env_list("ALLOWED_HOSTS", "localhost,127.0.0.1,162.35.167.180")
 
