@@ -33,7 +33,13 @@ from django.views.decorators.http import require_http_methods, require_POST
 from rest_framework.decorators import api_view, parser_classes
 from rest_framework.parsers import JSONParser, MultiPartParser
 from io import BytesIO
-from core.email import send_account_creation_email
+from core.email import (
+    send_account_creation_email,
+    send_account_activation_email,
+    send_registration_pending_email,
+    check_smtp,
+    safe_send,
+)
 
 from django.template.loader import render_to_string
 from django.utils import timezone
@@ -185,6 +191,7 @@ def register(request):
             user.role = user.role or "default"
             user.is_staff = False
             user.save()
+            send_registration_pending_email(user.email, user.first_name)
             messages.success(
                 request,
                 "Your account request has been submitted. You'll be notified once it's activated.",
@@ -252,9 +259,13 @@ CustomUser = get_user_model()
 @login_required
 # @staff_member_required
 def user_management(request):
+    if not can_manage_users(request.user):
+        messages.error(request, "You do not have permission to manage users.")
+        return redirect("custom_login")
     if request.method == "POST":
         return handle_user_creation(request)
 
+    smtp_ok, smtp_message = check_smtp()
     users = CustomUser.objects.select_related("qualification").exclude(
         is_superuser=True
     )
@@ -272,6 +283,7 @@ def user_management(request):
             "qualifications": quals,
             "assessment_centres": assessment_centres,
             "role_choices": CustomUser.ROLE_CHOICES,
+            "smtp_warning": "" if smtp_ok else smtp_message,
         },
     )
 
@@ -363,7 +375,8 @@ def handle_user_creation(request):
         else:
             messages.warning(
                 request, 
-                f"User created but email failed to send. Please check logs or contact the user directly."
+                f"User {email} was created but the email could NOT be sent. "
+                f"Give them these details manually - Username: {email}, Password: {pwd}"
             )
 
         return redirect("user_management")
@@ -423,13 +436,53 @@ def handle_user_creation(request):
 # ______________________________________________________________________________________________________
 
 
+def can_manage_users(user):
+    """Only administrators and superusers may manage user accounts."""
+    return user.is_authenticated and (user.is_superuser or user.role == "admin")
+
+
 @require_POST
 @login_required
 def update_user_role(request, user_id):
     try:
         user = get_object_or_404(CustomUser, pk=user_id)
-        user.role = request.POST.get("role")
+        new_role = request.POST.get("role")
+        if new_role not in dict(CustomUser.ROLE_CHOICES):
+            return JsonResponse(
+                {"success": False, "message": "Invalid role."}, status=400
+            )
+        if new_role == "assessment_center":
+            centre_id = request.POST.get("assessment_centre")
+            if centre_id:
+                centre = AssessmentCentre.objects.filter(pk=centre_id).first()
+                if centre is None:
+                    return JsonResponse(
+                        {"success": False, "message": "Assessment centre not found."},
+                        status=400,
+                    )
+                user.assessment_centre = centre
+            if not user.assessment_centre:
+                return JsonResponse(
+                    {
+                        "success": False,
+                        "message": "Link this user to an Assessment Centre before "
+                        "giving them the Assessment Center role.",
+                    },
+                    status=400,
+                )
+            if not user.assessment_centre.qualification_assigned:
+                return JsonResponse(
+                    {
+                        "success": False,
+                        "message": "The assessment centre has no qualification assigned.",
+                    },
+                    status=400,
+                )
+        previous_role = user.role
+        user.role = new_role
         user.save()
+        if previous_role == "default" and new_role != "default" and user.is_active:
+            send_account_activation_email(user.email, user.first_name)
 
         return JsonResponse(
             {
@@ -478,6 +531,16 @@ def toggle_user_status(request, user_id):
         user.deactivated_at = now()
     user.save()
     state = "activated" if user.is_active else "deactivated"
+    if user.is_active and user.role != "default":
+        if send_account_activation_email(user.email, user.first_name):
+            messages.success(request, f"{user.get_full_name()} activated. Notification email sent.")
+        else:
+            messages.warning(
+                request,
+                f"{user.get_full_name()} activated, but the notification email could NOT be sent. "
+                "Check the SMTP settings.",
+            )
+        return redirect("user_management")
     messages.success(request, f"{user.get_full_name()} {state}.")
     return redirect("user_management")
 

@@ -3,7 +3,8 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from core.models import CustomUser, AssessmentCentre
 from core.forms import AssessmentCenterStudentForm
-from django.core.mail import send_mail
+from core.email import safe_send
+from django.db import IntegrityError
 from django.utils.timezone import now
 import random, string
 
@@ -77,18 +78,23 @@ def create_student_by_assessment_center(request):
                 student.set_password(password)
                 student.save()
 
-                send_mail(
+                ok, err = safe_send(
                     'Your CHIETA LMS Password',
                     f'Hello {first},\n\nYour account has been created with:\n\n'
                     f'Username: {email}\n'
                     f'Password: {password}\n\n'
                     f'Please log in and change your password immediately.',
-                    'noreply@chieta.co.za',
                     [email],
-                    fail_silently=True,
                 )
-
-                messages.success(request, f"Student {email} created successfully. Login details sent.")
+                if ok:
+                    messages.success(request, f"Student {email} created successfully. Login details sent.")
+                else:
+                    messages.warning(
+                        request,
+                        f"Student {email} was created but the login email could NOT be sent "
+                        f"({err}). Please give the student these details manually - "
+                        f"Username: {email}, Password: {password}",
+                    )
             except IntegrityError:
                 messages.error(request, "A student with this email or student number already exists.")
             return redirect('create_student_by_assessment_center')

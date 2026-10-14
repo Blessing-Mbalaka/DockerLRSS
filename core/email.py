@@ -12,6 +12,54 @@ from django.utils.html import strip_tags
 logger = logging.getLogger(__name__)
 
 
+def check_smtp(timeout=None):
+    """
+    Open (and close) a real connection to the configured mail server.
+
+    Returns (ok: bool, message: str). Never raises, so it is safe to call from
+    health checks, management commands and admin pages.
+    """
+    backend = settings.EMAIL_BACKEND
+    if 'smtp' not in backend:
+        return False, f"Email backend is '{backend}', so no real emails will be sent."
+    try:
+        from django.core.mail import get_connection
+        connection = get_connection(timeout=timeout or settings.EMAIL_TIMEOUT)
+        connection.open()
+        connection.close()
+        return True, f"SMTP OK ({settings.EMAIL_HOST}:{settings.EMAIL_PORT})."
+    except Exception as exc:
+        return False, (
+            f"SMTP connection to {settings.EMAIL_HOST}:{settings.EMAIL_PORT} failed: "
+            f"{exc.__class__.__name__}: {exc}"
+        )
+
+
+def safe_send(subject, message, recipients, html_message=None):
+    """
+    Send an email and report the outcome instead of hiding failures.
+
+    Returns (ok: bool, error: str). Failures are logged and never raised.
+    """
+    if isinstance(recipients, str):
+        recipients = [recipients]
+    try:
+        sent = send_mail(
+            subject,
+            message,
+            settings.DEFAULT_FROM_EMAIL,
+            recipients,
+            fail_silently=False,
+            html_message=html_message,
+        )
+        if not sent:
+            raise RuntimeError("Mail backend reported 0 messages sent")
+        return True, ""
+    except Exception as exc:
+        logger.error("Email '%s' to %s failed: %s", subject, recipients, exc)
+        return False, f"{exc.__class__.__name__}: {exc}"
+
+
 def send_account_creation_email(email, first_name, password):
     """
     Send account creation email with credentials to new user
@@ -88,6 +136,20 @@ CHIETA LMS Team
     except Exception as e:
         logger.error(f"Failed to send account creation email to {email}: {str(e)}")
         return False
+
+
+def send_registration_pending_email(email, first_name):
+    """Tell a new registrant their request was received and awaits activation."""
+    ok, _ = safe_send(
+        'Your CHIETA LMS registration was received',
+        f"Hello {first_name or ''},\n\n"
+        "Thank you for registering for the CHIETA Learning Management System.\n"
+        "Your account is pending activation by an administrator. "
+        "You will receive another email once it has been activated.\n\n"
+        "This is an automated message from CHIETA LMS.",
+        [email],
+    )
+    return ok
 
 
 def send_account_activation_email(email, first_name):
