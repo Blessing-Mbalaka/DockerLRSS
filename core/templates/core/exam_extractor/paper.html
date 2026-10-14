@@ -593,14 +593,15 @@
         }
 
         const defaultLetters = ['A', 'B', 'C', 'D'];
-        if (selectedNumber) {
+        const hasConfiguredModules = entries.size > 0;
+        if (!hasConfiguredModules && selectedNumber) {
           defaultLetters.forEach(letter => {
             const code = `${selectedNumber}${letter}`;
             if (!entries.has(code)) {
               entries.set(code, letter);
             }
           });
-        } else {
+        } else if (!hasConfiguredModules) {
           defaultLetters.forEach(letter => {
             if (!entries.has(letter)) {
               entries.set(letter, letter);

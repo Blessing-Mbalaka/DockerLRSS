@@ -41,11 +41,30 @@ def get_module_meta(qualification_name: str, module_code: str) -> Dict[str, obje
     return meta if isinstance(meta, dict) else {}
 
 
+def _registry_letters(qualification_name: str, module_code: str) -> List[str]:
+    """Derive letters from the qualification registry (modules like 1A, 1B)."""
+    import re
+
+    from core import qualification_registry
+
+    match = re.match(r"^(\d+)", str(module_code or "").strip())
+    if not match:
+        return []
+    number = match.group(1)
+    letters: List[str] = []
+    for mod in qualification_registry.get_module_choices(qualification_name):
+        code = str(mod.get("code", "")).strip()
+        m = re.match(r"^(\d+)(.+)$", code)
+        if m and m.group(1) == number and m.group(2) not in letters:
+            letters.append(m.group(2))
+    return sorted(letters)
+
+
 def allowed_letters(qualification_name: str, module_code: str) -> List[str]:
     module_meta = get_module_meta(qualification_name, module_code)
     letters = module_meta.get("letters", [])
-    if not isinstance(letters, (list, tuple)):
-        return []
+    if not isinstance(letters, (list, tuple)) or not letters:
+        return _registry_letters(qualification_name, module_code)
     return [str(letter) for letter in letters]
 
 
