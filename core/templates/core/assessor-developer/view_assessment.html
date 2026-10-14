@@ -64,12 +64,14 @@
             <i class="fa fa-cogs"></i><span>Generate Assessment</span>
           </a>
         </li>
+        {% comment %}
         <li class="nav-item">
           <a class="nav-link{% if request.resolver_match.url_name == 'assessment_archive' %} active{% endif %}"
              href="{% url 'assessment_archive' %}">
             <i class="fa fa-archive"></i><span>Assessment History</span>
           </a>
         </li>
+        {% endcomment %}
         <li class="nav-item">
           <a class="nav-link{% if request.resolver_match.url_name == 'assessor_reports' %} active{% endif %}"
              href="{% url 'assessor_reports' %}">

@@ -433,7 +433,7 @@
           <form method="post" class="d-inline">
             {% csrf_token %}
             <input type="hidden" name="action" value="strip_red_text">
-            <button type="submit" class="btn btn-outline-warning btn-sm">
+            <button type="submit" class="btn btn-outline-danger btn-sm">
               Remove Red Text
             </button>
           </form>
@@ -651,9 +651,11 @@
             class="btn btn-info btn-lg text-white w-100">Refresh Randomized Paper</button> -->
         </div>
         <div class="w-100 mt-2 text-end d-flex gap-2 justify-content-end flex-wrap">
+          {% if can_download_word %}
           <a href="{% url 'download_randomized_pdf' assessment.id %}?format=docx" class="btn btn-outline-primary">
             <i class="fa fa-file-word-o"></i> Download Word (.docx)
           </a>
+          {% endif %}
           <!--
           <a href="{% url 'download_randomized_pdf' assessment.id %}?format=docx&variant=memo"
             class="btn btn-outline-success">
@@ -668,9 +670,11 @@
       </form>
       {% else %}
       <div class="mt-3 text-end d-flex gap-2 justify-content-end flex-wrap">
+        {% if can_download_word %}
         <a href="{% url 'download_randomized_pdf' assessment.id %}?format=docx" class="btn btn-outline-primary">
           <i class="fa fa-file-word-o"></i> Download Word (.docx)
         </a>
+        {% endif %}
       </div>
       {% endif %}
     </div>

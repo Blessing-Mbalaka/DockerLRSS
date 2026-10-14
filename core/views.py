@@ -24,7 +24,7 @@ from urllib.parse import urlencode
 from django.core.mail import send_mail
 from django.db import models, transaction, IntegrityError
 from django.db.models import Sum, Count, Q
-from django.http import Http404, HttpResponse, JsonResponse
+from django.http import Http404, HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.timezone import now
@@ -1951,6 +1951,9 @@ def download_randomized_pdf(request, assessment_id):
 
     req_format = (request.GET.get("format") or "pdf").lower()
 
+    if req_format == "docx" and user_role == "assessment_center":
+        return HttpResponseForbidden("Word downloads are not available for your role.")
+
     if req_format == "docx":
         # Build a Word document from the node_tree
         doc = Document()
@@ -3463,6 +3466,7 @@ def assessor_randomized_snapshot(request, assessment_id):
         "dashboard_url": reverse(dashboard_route),
         "dashboard_label": dashboard_label,
         "can_edit_snapshot": can_edit_snapshot,
+        "can_download_word": user_role != "assessment_center",
     }
     return render(request, "core/assessor-developer/randomized_snapshot.html", context)
 

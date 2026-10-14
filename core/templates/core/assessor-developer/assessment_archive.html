@@ -621,6 +621,7 @@
                     </a>
                 </li>
 
+                {% comment %}
                 <li class="nav-item">
                     <a href="{% url 'assessment_archive' %}"
                         class="nav-link{% if request.resolver_match.url_name == 'assessment_archive' %} active{% endif %}"
@@ -628,6 +629,7 @@
                         <i class="fa fa-archive me-2"></i>Assessment History
                     </a>
                 </li>
+                {% endcomment %}
 
                 <button class="gradient-button w-100 py-0">
                     <a href="{% url 'logout' %}" class="fix"> <i class="fa fa-sign-out-alt me-2"></i>Log Out</a>
