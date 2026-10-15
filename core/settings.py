@@ -240,7 +240,10 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'core.error_views.BrandedErrorMiddleware',
 ]
+
+BRANDED_ERRORS = get_env_bool("BRANDED_ERRORS", True)
 
 ROOT_URLCONF = 'core.urls'
 
@@ -284,6 +287,8 @@ else:
     }
 
 
+# Lets Django serve /media/ when DEBUG is False and no nginx is in front.
+SERVE_MEDIA = get_env_bool("SERVE_MEDIA", True)
 MEDIA_URL = os.getenv("MEDIA_URL", "/media/")
 MEDIA_ROOT = os.getenv("MEDIA_ROOT", str(BASE_DIR / "media"))
 

@@ -12,6 +12,9 @@
   const contentClose = document.getElementById('content-close');
   const conditionalFields = Array.from(form?.querySelectorAll('.conditional-field') || []);
   const boxesList = document.getElementById('boxes-list');
+  if (form && !form.__originalAction) {
+    form.__originalAction = form.action;
+  }
   if (btnAIAuto && !btnAIAuto.dataset.originalLabel) {
     btnAIAuto.dataset.originalLabel = btnAIAuto.textContent?.trim() || 'Auto Draw All';
   }
@@ -362,7 +365,32 @@
     return note;
   };
 
-  const openModal = (box, meta) => {
+  const setCreateMode = () => {
+    if (!form) return;
+    form.action = form.__originalAction || form.action;
+    window.__currentBoxNode = null;
+    const submit = form.querySelector('button[type="submit"]');
+    if (submit) submit.textContent = 'Save Box';
+  };
+
+  const setEditMode = (node) => {
+    if (!form || !node?.dataset.updateUrl) return false;
+    form.action = node.dataset.updateUrl;
+    window.__currentBoxNode = node;
+    const submit = form.querySelector('button[type="submit"]');
+    if (submit) submit.textContent = 'Save Changes';
+    return true;
+  };
+
+  const openModal = (box, meta, editNode = null) => {
+    if (editNode) {
+      if (!setEditMode(editNode)) {
+        toast('Missing update URL for this box.', 'error');
+        return;
+      }
+    } else {
+      setCreateMode();
+    }
     modal.classList.remove("hidden");
     if (window.__autoDrawAllActive) {
       ensureAutoNote();
@@ -500,6 +528,7 @@
 
   cancel?.addEventListener("click", () => {
     modal.classList.add("hidden");
+    setCreateMode();
     // cleanup
     [...overlay.querySelectorAll(".selection-rect")].forEach(el => el.remove());
     if (window.__autoDrawAllActive) {
@@ -622,6 +651,51 @@
     if (!node) return;
     e.preventDefault();
     e.stopPropagation();
+    if (targetBtn.classList.contains('edit-box')) {
+      try {
+        const url = node.dataset.jsonUrl;
+        if (url) {
+          const resp = await fetch(url, { credentials: 'same-origin' });
+          const data = await resp.json().catch(() => null);
+          if (!resp.ok || !data?.ok || !data.box) {
+            throw new Error('Unable to load the latest box details');
+          }
+          applyBoxDataset(node, data.box);
+        }
+
+        [...overlay.querySelectorAll('.selection-rect')].forEach(el => el.remove());
+        const rect = document.createElement('div');
+        rect.className = 'selection-rect';
+        Object.assign(rect.style, {
+          left: `${parseFloat(node.dataset.x) || 0}px`,
+          top: `${parseFloat(node.dataset.y) || 0}px`,
+          width: `${parseFloat(node.dataset.w) || 0}px`,
+          height: `${parseFloat(node.dataset.h) || 0}px`,
+        });
+        overlay.appendChild(rect);
+        openModal(
+          {
+            x: parseFloat(node.dataset.x) || 0,
+            y: parseFloat(node.dataset.y) || 0,
+            w: parseFloat(node.dataset.w) || 0,
+            h: parseFloat(node.dataset.h) || 0,
+          },
+          {
+            question_number: node.dataset.qn || '',
+            marks: node.dataset.marks || '',
+            qtype: node.dataset.qtype || 'question',
+            parent_number: node.dataset.parentNumber || '',
+            header_label: node.dataset.headerLabel || '',
+            case_study_label: node.dataset.caseLabel || '',
+          },
+          node,
+        );
+      } catch (err) {
+        console.error('Edit box error', err);
+        toast('Failed to open this box for editing.', 'error');
+      }
+      return;
+    }
     if (targetBtn.classList.contains('resize-box')) {
       // Manual resize mode without opening modal
       const x = parseFloat(node.dataset.x), y = parseFloat(node.dataset.y);
@@ -861,6 +935,10 @@
     } catch (_) { }
 
     const fd = new FormData(form);
+    if (/\/boxes\/\d+\/update\/$/.test(form.action || '')) {
+      fd.delete('content_json');
+      fd.delete('content_type');
+    }
     const csrf = fd.get('csrfmiddlewaretoken');
     const resp = await fetch(form.action, { method: "POST", body: fd, credentials: 'same-origin', headers: csrf ? { 'X-CSRFToken': csrf } : {} });
     if (resp.ok) {
@@ -879,7 +957,8 @@
             if (node) {
               applyBoxDataset(node, data.box);
             }
-            if (form.__originalAction) form.action = form.__originalAction;
+            setCreateMode();
+            toast('Box updated.', 'success', 1800);
             return;
           }
           // Remove placeholder if present

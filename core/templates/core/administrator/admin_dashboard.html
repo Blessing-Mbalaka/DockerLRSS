@@ -785,7 +785,10 @@
 
     <!-- ========= Randomization Pools Modal ========= -->
     <div class="modal fade" id="assessorPoolModal" tabindex="-1" aria-hidden="true"
-        data-url="{% url 'assessor_pool_data' %}">
+        data-url="{% url 'assessor_pool_data' %}"
+        data-create-url="{% url 'assessor_pool_block_create' %}"
+        data-update-url-template="{% url 'assessor_pool_block_update' 0 %}"
+        data-delete-url-template="{% url 'assessor_pool_block_delete' 0 %}">
         <div class="modal-dialog modal-xl modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
@@ -829,6 +832,59 @@
                 </div>
                 <div class="modal-body" data-role="pool-preview-body"></div>
             </div>
+        </div>
+    </div>
+
+    <!-- ========= Pool Block Editor Modal ========= -->
+    <div class="modal fade" id="poolBlockEditorModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <form class="modal-content" data-role="pool-block-form">
+                <div class="modal-header">
+                    <h5 class="modal-title" data-role="pool-editor-title">Create Pool Block</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-danger d-none" data-role="pool-editor-status"></div>
+                    <div class="mb-3">
+                        <label class="form-label" for="adminPoolBlockPaper">Source paper</label>
+                        <select class="form-select" id="adminPoolBlockPaper" name="paper_id" required></select>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-sm-6">
+                            <label class="form-label" for="adminPoolBlockQuestion">Question number</label>
+                            <input class="form-control" id="adminPoolBlockQuestion" name="question_number" required>
+                        </div>
+                        <div class="col-sm-6">
+                            <label class="form-label" for="adminPoolBlockParent">Parent number</label>
+                            <input class="form-control" id="adminPoolBlockParent" name="parent_number">
+                        </div>
+                        <div class="col-sm-6">
+                            <label class="form-label" for="adminPoolBlockType">Type</label>
+                            <select class="form-select" id="adminPoolBlockType" name="qtype">
+                                <option value="question">Question</option>
+                                <option value="question_part">Question Part</option>
+                                <option value="heading">Heading</option>
+                                <option value="case_study">Case Study</option>
+                                <option value="instruction">Instruction</option>
+                                <option value="cover_page">Cover Page</option>
+                            </select>
+                        </div>
+                        <div class="col-sm-6">
+                            <label class="form-label" for="adminPoolBlockMarks">Marks</label>
+                            <input class="form-control" id="adminPoolBlockMarks" name="marks" inputmode="numeric">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label" for="adminPoolBlockContent">Captured text</label>
+                            <textarea class="form-control" id="adminPoolBlockContent" name="content_text" rows="6"></textarea>
+                            <div class="form-text d-none" data-role="pool-content-help">This block contains structured content. Edit its content from the source paper; metadata and marks can still be changed here.</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Block</button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -878,14 +934,28 @@
             const moduleSelect = modalEl.querySelector('[data-role="pool-filter-module"]');
             const letterSelect = modalEl.querySelector('[data-role="pool-filter-letter"]');
             const refreshBtn = modalEl.querySelector('[data-role="pool-refresh"]');
-            const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]')?.value || '';
+            const createBlockUrl = modalEl.getAttribute('data-create-url');
+            const updateBlockUrlTemplate = modalEl.getAttribute('data-update-url-template');
+            const deleteBlockUrlTemplate = modalEl.getAttribute('data-delete-url-template');
+            const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]')?.value
+                || document.cookie.match(/(?:^|; )csrftoken=([^;]+)/)?.[1]
+                || '';
             const previewModalEl = document.getElementById('poolPreviewModal');
             const previewModal = previewModalEl ? new bootstrap.Modal(previewModalEl) : null;
             const previewBody = previewModalEl?.querySelector('[data-role="pool-preview-body"]');
+            const editorModalEl = document.getElementById('poolBlockEditorModal');
+            const editorModal = editorModalEl ? new bootstrap.Modal(editorModalEl) : null;
+            const editorForm = editorModalEl?.querySelector('[data-role="pool-block-form"]');
+            const editorTitle = editorModalEl?.querySelector('[data-role="pool-editor-title"]');
+            const editorStatus = editorModalEl?.querySelector('[data-role="pool-editor-status"]');
+            const sourcePaperSelect = editorForm?.querySelector('[name="paper_id"]');
+            const contentField = editorForm?.querySelector('[name="content_text"]');
+            const contentHelp = editorForm?.querySelector('[data-role="pool-content-help"]');
 
             let tiles = [];
             let rawModules = [];
             let activeTile = null;
+            let editingEntry = null;
 
             const naturalKey = (value) => {
                 const text = (value || '').toString();
@@ -962,6 +1032,84 @@
                 }
                 statusEl.className = `alert alert-${variant}`;
                 statusEl.textContent = message;
+                statusEl.classList.remove('d-none');
+            };
+
+            const blockUrl = (template, blockId) => template ? template.replace('/0/', `/${blockId}/`) : '';
+
+            const setEditorStatus = (message) => {
+                if (!editorStatus) return;
+                editorStatus.textContent = message || '';
+                editorStatus.classList.toggle('d-none', !message);
+            };
+
+            const openBlockEditor = (tile, entry = null) => {
+                if (!editorModal || !editorForm || !sourcePaperSelect || !contentField) return;
+                editingEntry = entry;
+                editorForm.reset();
+                setEditorStatus('');
+                editorTitle.textContent = entry ? 'Edit Pool Block' : 'Create Pool Block';
+
+                const papers = new Map((tile.sourcePapers || []).map(paper => [
+                    String(paper.id),
+                    `${paper.title} — ${paper.qualification_name || 'Legacy / unassigned'} (ID ${paper.id})`,
+                ]));
+                tile.entries.forEach(item => {
+                    const paperId = String(item.paper_id || '');
+                    if (paperId && !papers.has(paperId)) {
+                        papers.set(
+                            paperId,
+                            `${item.paper_title || `Paper ${paperId}`} — ${item.qualification_name || 'Legacy / unassigned'} (ID ${paperId})`
+                        );
+                    }
+                });
+                sourcePaperSelect.innerHTML = '';
+                papers.forEach((title, id) => {
+                    const option = document.createElement('option');
+                    option.value = id;
+                    option.textContent = title;
+                    sourcePaperSelect.appendChild(option);
+                });
+
+                if (entry) {
+                    sourcePaperSelect.value = String(entry.paper_id || '');
+                    sourcePaperSelect.disabled = true;
+                    editorForm.elements.question_number.value = entry.question_number || '';
+                    editorForm.elements.parent_number.value = entry.parent_number || '';
+                    editorForm.elements.qtype.value = entry.qtype || 'question';
+                    editorForm.elements.marks.value = entry.marks || '';
+                    contentField.value = entry.content_text || '';
+                    contentField.disabled = entry.content_editable === false;
+                    contentHelp?.classList.toggle('d-none', entry.content_editable !== false);
+                } else {
+                    sourcePaperSelect.disabled = false;
+                    contentField.disabled = false;
+                    contentHelp?.classList.add('d-none');
+                }
+                editorModal.show();
+            };
+
+            const deleteBlock = async (entry) => {
+                const blockLabel = entry.question_number || entry.id;
+                const paperLabel = entry.paper_title || `Paper ${entry.paper_id || '-'}`;
+                const qualificationLabel = entry.qualification_name || 'Legacy / unassigned';
+                if (!confirm(`Delete block ${blockLabel} from ${paperLabel} (${qualificationLabel})? This cannot be undone.`)) return;
+                try {
+                    const response = await fetch(blockUrl(deleteBlockUrlTemplate, entry.id), {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        headers: { 'X-CSRFToken': csrfToken },
+                    });
+                    const data = await response.json().catch(() => ({}));
+                    if (!response.ok || !data.ok) throw new Error(data.message || 'Delete failed.');
+                    const refreshed = await fetchData();
+                    setStatus(
+                        refreshed ? 'Pool block deleted.' : 'Pool block deleted, but the pool list could not be refreshed.',
+                        refreshed ? 'success' : 'warning'
+                    );
+                } catch (err) {
+                    setStatus(err.message || 'Failed to delete pool block.', 'danger');
+                }
             };
 
             const buildTiles = (modules) => {
@@ -973,6 +1121,7 @@
                             letter: letter.letter || '-',
                             count: letter.count || 0,
                             entries: letter.entries || [],
+                            sourcePapers: letter.source_papers || [],
                         });
                     });
                 });
@@ -988,10 +1137,19 @@
 
             const renderDetail = (tile) => {
                 detailEl.innerHTML = '';
+                const headingRow = document.createElement('div');
+                headingRow.className = 'd-flex justify-content-between align-items-center mb-2';
                 const heading = document.createElement('h6');
-                heading.className = 'fw-semibold mb-2';
+                heading.className = 'fw-semibold mb-0';
                 heading.textContent = `${tile.module} · ${tile.letter}`;
-                detailEl.appendChild(heading);
+                const addBtn = document.createElement('button');
+                addBtn.type = 'button';
+                addBtn.className = 'btn btn-sm btn-success';
+                addBtn.innerHTML = '<i class="fas fa-plus me-1"></i>Add Block';
+                addBtn.addEventListener('click', () => openBlockEditor(tile));
+                headingRow.appendChild(heading);
+                headingRow.appendChild(addBtn);
+                detailEl.appendChild(headingRow);
 
                 if (!tile.entries.length) {
                     const empty = document.createElement('p');
@@ -1005,7 +1163,7 @@
                 wrapper.className = 'table-responsive';
                 const table = document.createElement('table');
                 table.className = 'table table-sm align-middle pool-detail-table';
-                table.innerHTML = '<thead><tr><th>Question</th><th>Parent</th><th>Type</th><th>Marks</th><th>Preview</th><th>Captured</th><th>Qualification</th></tr></thead>';
+                table.innerHTML = '<thead><tr><th>Question</th><th>Parent</th><th>Type</th><th>Marks</th><th>Preview</th><th>Captured</th><th>Qualification</th><th>Actions</th></tr></thead>';
                 const tbody = document.createElement('tbody');
 
                 const makeCell = (value) => {
@@ -1042,6 +1200,21 @@
 
                     row.appendChild(makeCell(captured));
                     row.appendChild(makeCell(entry.qualification_name || '-'));
+                    const actionCell = document.createElement('td');
+                    actionCell.className = 'text-nowrap';
+                    const editBtn = document.createElement('button');
+                    editBtn.type = 'button';
+                    editBtn.className = 'btn btn-sm btn-outline-primary me-1';
+                    editBtn.textContent = 'Edit';
+                    editBtn.addEventListener('click', () => openBlockEditor(tile, entry));
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.type = 'button';
+                    deleteBtn.className = 'btn btn-sm btn-outline-danger';
+                    deleteBtn.textContent = 'Delete';
+                    deleteBtn.addEventListener('click', () => deleteBlock(entry));
+                    actionCell.appendChild(editBtn);
+                    actionCell.appendChild(deleteBtn);
+                    row.appendChild(actionCell);
                     tbody.appendChild(row);
                 });
 
@@ -1053,10 +1226,9 @@
                     btn.addEventListener('click', () => openPreview(btn.dataset.content, btn.dataset.label));
                 });
 
-                // Admin view - no randomization button, just info text
                 const note = document.createElement('small');
                 note.className = 'text-muted';
-                note.textContent = 'Admin view - All captured questions across all qualifications.';
+                note.textContent = 'Admin view - create, edit, or delete captured blocks across all qualifications.';
                 detailEl.appendChild(note);
             };
 
@@ -1172,14 +1344,60 @@
                     const filtered = getFilteredTiles();
                     if (!tiles.length) {
                         setStatus('No captured blocks found yet. Capture boxes in the extractor to build the pool.', 'warning');
-                        return;
+                        return true;
                     }
                     renderTiles(filtered);
+                    return true;
                 } catch (err) {
                     console.error(err);
                     setStatus('Failed to load pool data. Please try again.', 'danger');
+                    return false;
                 }
             };
+
+            editorForm?.addEventListener('submit', async (event) => {
+                event.preventDefault();
+                setEditorStatus('');
+                const submitBtn = editorForm.querySelector('button[type="submit"]');
+                const url = editingEntry
+                    ? blockUrl(updateBlockUrlTemplate, editingEntry.id)
+                    : createBlockUrl;
+                const formData = new FormData(editorForm);
+                if (editingEntry) formData.set('paper_id', String(editingEntry.paper_id || ''));
+                if (
+                    editingEntry
+                    && formData.has('content_text')
+                    && formData.get('content_text') === (editingEntry.content_text || '')
+                ) {
+                    formData.delete('content_text');
+                }
+                submitBtn.disabled = true;
+                try {
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        headers: { 'X-CSRFToken': csrfToken },
+                        body: formData,
+                    });
+                    const data = await response.json().catch(() => ({}));
+                    if (!response.ok || !data.ok) throw new Error(data.message || 'Save failed.');
+                    const wasEditing = Boolean(editingEntry);
+                    editorModal.hide();
+                    editingEntry = null;
+                    const refreshed = await fetchData();
+                    const action = wasEditing ? 'updated' : 'created';
+                    setStatus(
+                        refreshed
+                            ? `Pool block ${action}.`
+                            : `Pool block ${action}, but the pool list could not be refreshed.`,
+                        refreshed ? 'success' : 'warning'
+                    );
+                } catch (err) {
+                    setEditorStatus(err.message || 'Failed to save pool block.');
+                } finally {
+                    submitBtn.disabled = false;
+                }
+            });
 
             modalEl.addEventListener('show.bs.modal', () => {
                 if (!rawModules.length) {

@@ -1327,23 +1327,8 @@ def assessment_archive(request):
 
 
 def assessor_dashboard(request):
-    user = request.user
-    qualification = getattr(user, "qualification", None)
-    if qualification:
-        assessments = Assessment.objects.filter(qualification=qualification).order_by(
-            "-created_at"
-        )
-    else:
-        assessments = Assessment.objects.none()
-    return render(
-        request,
-        "core/assessor-developer/assessor_dashboard.html",
-        {
-            "assessments": assessments,
-            "qualification": qualification,
-            "user": user,
-        },
-    )
+    # Legacy dashboard retired; the URL name is kept so existing links still resolve.
+    return redirect("assessor_developer")
 
 
 @login_required
@@ -1473,6 +1458,14 @@ def assessor_developer(request):
     return render(request, "core/assessor-developer/assessor_developer.html", context)
 
 
+def _pool_user_is_privileged(user):
+    return bool(
+        user.is_superuser
+        or user.is_staff
+        or getattr(user, "role", "") in {"admin", "moderator"}
+    )
+
+
 @login_required
 def assessor_pool_data(request):
     module_filter = (request.GET.get("module") or "").strip()
@@ -1483,14 +1476,15 @@ def assessor_pool_data(request):
     user_role = getattr(user, "role", "")
     user_qualification = getattr(user, "qualification", None)
     
-    # Determine if we need to restrict data to user's qualification
-    # Only actual Django staff/superuser OR explicitly marked admin should see all pools
-    # Regular users (including those with default role) should be restricted to their qualification
-    is_privileged_user = user.is_superuser or (user.is_staff and user_role == "admin")
+    is_privileged_user = _pool_user_is_privileged(user)
     restrict_to_qualification = None
-    
-    if not is_privileged_user and user_qualification:
-        # Non-privileged users can only see pools for their qualification
+
+    if not is_privileged_user:
+        if user_role != "assessor_dev" or not user_qualification:
+            return JsonResponse(
+                {"ok": False, "message": "An assessor qualification is required."},
+                status=403,
+            )
         restrict_to_qualification = user_qualification
     
     # DEBUG LOGGING
@@ -1548,28 +1542,51 @@ def assessor_pool_data(request):
                 break
         return " ".join(snippets)[:200]
 
-    boxes_qs = (
-        ExtractorUserBox.objects.select_related(
-            "paper", "paper__assessment_record__qualification"
-        )
-        .filter(paper__module_name__isnull=False)
-        .exclude(paper__module_name="")
+    def editable_content_text(raw: str | None):
+        if not raw:
+            return "", True
+        try:
+            data = json.loads(raw)
+        except Exception:
+            return raw, True
+        items = data.get("items", []) if isinstance(data, dict) else data
+        if not isinstance(items, list):
+            return "", False
+        if (
+            len(items) != 1
+            or not isinstance(items[0], dict)
+            or (items[0].get("type") or "").lower() != "text"
+        ):
+            return "", False
+        return items[0].get("text") or "", True
+
+    papers_qs = (
+        ExtractorPaper.objects.select_related("assessment_record__qualification")
+        .filter(module_name__isnull=False)
+        .exclude(module_name="")
     )
 
     # Apply qualification filter: Non-privileged users only see their qualification's pools
     if restrict_to_qualification:
-        # Filter by matching the qualification
-        # Two approaches: 1) Direct assessment link, 2) Module name matching
         from django.db.models import Q
-        boxes_qs = boxes_qs.filter(
-            Q(paper__assessment_record__qualification=restrict_to_qualification) |
-            Q(paper__module_name__iexact=restrict_to_qualification.name)
+        papers_qs = papers_qs.filter(
+            Q(assessment_record__qualification=restrict_to_qualification)
+            | Q(
+                assessment_record__isnull=True,
+                module_name__iexact=restrict_to_qualification.name,
+            )
         )
     
     if module_filter:
-        boxes_qs = boxes_qs.filter(paper__module_name__iexact=module_filter)
+        papers_qs = papers_qs.filter(module_name__iexact=module_filter)
+
+    eligible_papers = list(papers_qs)
+    boxes_qs = ExtractorUserBox.objects.select_related(
+        "paper", "paper__assessment_record__qualification"
+    ).filter(paper__in=eligible_papers)
 
     modules_map: dict[str, dict[str, list[dict[str, object]]]] = {}
+    source_papers_map: dict[str, dict[str, list[dict[str, object]]]] = {}
 
     def natural_key(value: str | None):
         text = value or ""
@@ -1577,6 +1594,27 @@ def assessor_pool_data(request):
             int(part) if part.isdigit() else part.lower()
             for part in re.split(r"(\d+)", text)
         ]
+
+    def qualification_name_for(paper_ref) -> str:
+        assessment = getattr(paper_ref, "assessment_record", None)
+        qualification = getattr(assessment, "qualification", None)
+        if qualification:
+            return qualification.name
+        return "Legacy / unassigned"
+
+    for paper_ref in eligible_papers:
+        module_name = (paper_ref.module_name or "").strip() or "Unknown Module"
+        letter_norm = normalize_letter(paper_ref.paper_letter)
+        if letter_filter and letter_norm.lower() != letter_filter:
+            continue
+        modules_map.setdefault(module_name, {}).setdefault(letter_norm, [])
+        source_papers_map.setdefault(module_name, {}).setdefault(letter_norm, []).append(
+            {
+                "id": paper_ref.id,
+                "title": paper_ref.title or f"Paper {paper_ref.id}",
+                "qualification_name": qualification_name_for(paper_ref),
+            }
+        )
 
     for box in boxes_qs:
         paper_ref = box.paper
@@ -1587,6 +1625,8 @@ def assessor_pool_data(request):
         if letter_filter and letter_norm.lower() != letter_filter:
             continue
 
+        content_text, content_editable = editable_content_text(box.content)
+
         entry_list = modules_map.setdefault(module_name, {}).setdefault(letter_norm, [])
         entry_list.append(
             {
@@ -1596,9 +1636,12 @@ def assessor_pool_data(request):
                 "qtype": box.qtype or "",
                 "marks": box.marks or "",
                 "content_preview": summarize_content(box.content),
+                "content_text": content_text,
+                "content_editable": content_editable,
                 "content": box.content or "",
                 "paper_id": paper_ref.id if paper_ref else None,
                 "paper_title": paper_ref.title if paper_ref else "",
+                "qualification_name": qualification_name_for(paper_ref),
                 "created_at": box.created_at.isoformat() if box.created_at else None,
             }
         )
@@ -1615,6 +1658,7 @@ def assessor_pool_data(request):
                     "letter": letter,
                     "count": len(entries),
                     "entries": entries,
+                    "source_papers": source_papers_map.get(module_name, {}).get(letter, []),
                 }
             )
         modules_payload.append(
@@ -1636,6 +1680,130 @@ def assessor_pool_data(request):
             "modules": modules_payload,
         }
     )
+
+
+def _pool_user_can_manage_paper(user, paper):
+    user_role = getattr(user, "role", "")
+    if _pool_user_is_privileged(user):
+        return True
+    if user_role != "assessor_dev" or not getattr(user, "qualification_id", None):
+        return False
+    assessment = getattr(paper, "assessment_record", None)
+    if assessment is not None:
+        return bool(
+            assessment.qualification_id
+            and assessment.qualification_id == user.qualification_id
+        )
+    module_matches_qualification = (
+        (paper.module_name or "").strip().lower()
+        == (user.qualification.name or "").strip().lower()
+    )
+    return module_matches_qualification
+
+
+def _pool_block_content(content_text):
+    text = (content_text or "").strip()
+    if not text:
+        return "", ""
+    return "text", json.dumps({"items": [{"type": "text", "text": text}]})
+
+
+def _update_pool_block_fields(box, data):
+    box.question_number = (data.get("question_number") or "").strip()
+    box.parent_number = (data.get("parent_number") or "").strip()
+    box.marks = (data.get("marks") or "").strip()
+    box.qtype = (data.get("qtype") or "question").strip()
+    if "content_text" in data:
+        box.content_type, box.content = _pool_block_content(data.get("content_text"))
+
+
+def _pool_block_response(box, *, status=200):
+    return JsonResponse(
+        {
+            "ok": True,
+            "entry": {
+                "id": box.id,
+                "paper_id": box.paper_id,
+                "question_number": box.question_number,
+                "parent_number": box.parent_number,
+                "qtype": box.qtype,
+                "marks": box.marks,
+                "content": box.content,
+            },
+        },
+        status=status,
+    )
+
+
+@login_required
+@require_POST
+def assessor_pool_block_create(request):
+    paper_id = request.POST.get("paper_id")
+    if not paper_id:
+        return JsonResponse({"ok": False, "message": "A source paper is required."}, status=400)
+    paper = get_object_or_404(
+        ExtractorPaper.objects.select_related("assessment_record"), id=paper_id
+    )
+    if not _pool_user_can_manage_paper(request.user, paper):
+        return JsonResponse({"ok": False, "message": "You cannot edit this pool."}, status=403)
+
+    last_order = (
+        paper.user_boxes.order_by("-order_index")
+        .values_list("order_index", flat=True)
+        .first()
+        or 0
+    )
+    box = ExtractorUserBox(
+        paper=paper,
+        x=0,
+        y=0,
+        w=0,
+        h=0,
+        order_index=last_order + 1,
+    )
+    _update_pool_block_fields(box, request.POST)
+    if not box.question_number:
+        return JsonResponse({"ok": False, "message": "Question number is required."}, status=400)
+    box.save()
+    return _pool_block_response(box, status=201)
+
+
+@login_required
+@require_POST
+def assessor_pool_block_update(request, box_id):
+    box = get_object_or_404(
+        ExtractorUserBox.objects.select_related("paper", "paper__assessment_record"),
+        id=box_id,
+    )
+    if not _pool_user_can_manage_paper(request.user, box.paper):
+        return JsonResponse({"ok": False, "message": "You cannot edit this pool."}, status=403)
+    _update_pool_block_fields(box, request.POST)
+    if not box.question_number:
+        return JsonResponse({"ok": False, "message": "Question number is required."}, status=400)
+    box.save(
+        update_fields=[
+            "question_number",
+            "parent_number",
+            "marks",
+            "qtype",
+            "content_type",
+            "content",
+        ]
+    )
+    return _pool_block_response(box)
+
+
+@login_required
+@require_POST
+def assessor_pool_block_delete(request, box_id):
+    box = get_object_or_404(
+        ExtractorUserBox.objects.select_related("paper", "paper__assessment_record"),
+        id=box_id,
+    )
+    if not _pool_user_can_manage_paper(request.user, box.paper):
+        return JsonResponse({"ok": False, "message": "You cannot edit this pool."}, status=403)
+    box.delete()
+    return JsonResponse({"ok": True, "deleted": box_id})
 
 
 @login_required
@@ -1665,8 +1833,7 @@ def assessor_pool_randomize(request):
     user = request.user
     user_role = getattr(user, "role", "")
     user_qualification = getattr(user, "qualification", None)
-    # Only actual Django staff/superuser OR explicitly marked admin should see all pools
-    is_privileged_user = user.is_superuser or (user.is_staff and user_role == "admin")
+    is_privileged_user = _pool_user_is_privileged(user)
 
     # Authorization Check: Non-privileged users must have a qualification
     if not is_privileged_user and not user_qualification:
@@ -5879,6 +6046,17 @@ def upload_student_register(request):
                 reader, start=2
             ):  # Start at 2 to account for header
                 try:
+                    # Normalise values; csv gives None for short rows
+                    row = {
+                        (k or "").strip().lower(): (v or "").strip()
+                        for k, v in row.items()
+                        if k is not None
+                    }
+
+                    # Skip completely blank rows (e.g. trailing commas/empty lines)
+                    if not any(row.values()):
+                        continue
+
                     # Validate required fields
                     required_fields = [
                         "student_number",
@@ -5888,12 +6066,12 @@ def upload_student_register(request):
                         "qualification",
                         "status",
                     ]
-                    for field in required_fields:
-                        if field not in row or not row[field]:
-                            errors.append(
-                                f"Row {row_num}: Missing required field '{field}'"
-                            )
-                            continue
+                    missing = [f for f in required_fields if not row.get(f)]
+                    if missing:
+                        errors.append(
+                            f"Row {row_num}: Missing required field(s): {', '.join(missing)}"
+                        )
+                        continue
 
                     # Validate status
                     if row["status"].lower() not in ["present", "absent"]:

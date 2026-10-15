@@ -38,6 +38,10 @@ services:
       - SECRET_KEY=${SECRET_KEY:-django-insecure-change-me-in-production}
       - ALLOWED_HOSTS=${ALLOWED_HOSTS:-localhost,127.0.0.1}
       - DATABASE_URL=postgresql://${POSTGRES_USER:-lms_user}:${POSTGRES_PASSWORD:-lms_password}@db:5432/${POSTGRES_DB:-lms_db}
+      - MEDIA_URL=/media/
+      - MEDIA_ROOT=/app/media
+      - STATIC_URL=/static/
+      - STATIC_ROOT=/app/staticfiles
       - EMAIL_BACKEND=${EMAIL_BACKEND:-django.core.mail.backends.console.EmailBackend}
       - EMAIL_HOST=${EMAIL_HOST:-smtp.gmail.com}
       - EMAIL_PORT=${EMAIL_PORT:-587}

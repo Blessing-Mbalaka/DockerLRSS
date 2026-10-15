@@ -729,19 +729,87 @@
     </div>
 
     <!-- JavaScript -->
+    <div class="modal fade" id="pickCentreModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Select Assessment Centre</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Choose an Assessment Centre for this user to complete the role change.</p>
+                    <select id="pickCentreSelect" class="form-select">
+                        <option value="">Select Assessment Centre</option>
+                        {% for centre in assessment_centres %}
+                        <option value="{{ centre.id }}">{{ centre.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <div id="pickCentreError" class="text-danger small mt-2" style="display:none;">Please select an Assessment Centre.</div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-success" id="pickCentreConfirm">Assign Role</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // Modal flow: pick a centre, then the role change is submitted automatically
+    let pendingCentre = null;
+    function openCentreModal(roleSelect, centreSelect, previousRole) {
+        pendingCentre = { roleSelect, centreSelect, previousRole, confirmed: false };
+        document.getElementById('pickCentreSelect').value = '';
+        document.getElementById('pickCentreError').style.display = 'none';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('pickCentreModal')).show();
+    }
+    document.getElementById('pickCentreConfirm').addEventListener('click', function () {
+        const value = document.getElementById('pickCentreSelect').value;
+        if (!value) {
+            document.getElementById('pickCentreError').style.display = '';
+            return;
+        }
+        const p = pendingCentre;
+        p.confirmed = true;
+        p.centreSelect.value = value;
+        bootstrap.Modal.getInstance(document.getElementById('pickCentreModal')).hide();
+        p.roleSelect.dispatchEvent(new Event('change'));
+    });
+    document.getElementById('pickCentreModal').addEventListener('hidden.bs.modal', function () {
+        const p = pendingCentre;
+        if (p && !p.confirmed) {
+            p.roleSelect.value = p.previousRole;
+            if (p.previousRole !== 'assessment_center') p.centreSelect.style.display = 'none';
+        }
+        pendingCentre = null;
+    });
+    </script>
     <script>
     // Role assignment handler with improved CSRF token handling and qualification field management
     document.querySelectorAll('.assign-role').forEach(function (select) {
         select.addEventListener('change', function () {
             const url = this.dataset.url;
+            const row = this.closest('tr');
+            const centreSelect = row.querySelector('.role-centre');
+            const previousRole = this.dataset.prev;
+            if (this.value === 'assessment_center') {
+                centreSelect.style.display = '';
+                if (!centreSelect.value) {
+                    openCentreModal(this, centreSelect, previousRole);
+                    return;
+                }
+            } else {
+                centreSelect.style.display = 'none';
+            }
             const formData = new FormData();
             formData.append('role', this.value);
+            if (this.value === 'assessment_center') {
+                formData.append('assessment_centre', centreSelect.value);
+            }
             formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
 
             // Show loading state
-            const originalValue = this.value;
             const originalText = this.options[this.selectedIndex].text;
-            const row = this.closest('tr');
             const roleDisplay = row.querySelector('.role-display');
             roleDisplay.textContent = "Updating...";
 
@@ -763,6 +831,7 @@
                 if (data.success) {
                     // Update role display with server-side value
                     roleDisplay.textContent = data.new_role_display || originalText;
+                    this.dataset.prev = this.value;
                     
                     // Toggle qualification select disabled state
                     const qualificationSelect = row.querySelector('select[name="qualification"]');
@@ -782,8 +851,9 @@
                 console.error('Error:', err);
                 alert(err.message || 'Could not update role. Please try again.');
                 // Revert selection
-                this.value = originalValue;
-                roleDisplay.textContent = originalText;
+                this.value = previousRole;
+                centreSelect.style.display = previousRole === 'assessment_center' ? '' : 'none';
+                roleDisplay.textContent = this.options[this.selectedIndex].text;
             });
         });
     });

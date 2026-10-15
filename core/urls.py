@@ -56,6 +56,9 @@ urlpatterns = [
     path('assessor/view/<str:eisa_id>/', views.view_assessment, name='view_assessment'),
     path('assessor-developer/', views.assessor_developer, name='assessor_developer'),
     path('assessor-developer/pools.json', views.assessor_pool_data, name='assessor_pool_data'),
+    path('assessor-developer/pools/blocks/create/', views.assessor_pool_block_create, name='assessor_pool_block_create'),
+    path('assessor-developer/pools/blocks/<int:box_id>/update/', views.assessor_pool_block_update, name='assessor_pool_block_update'),
+    path('assessor-developer/pools/blocks/<int:box_id>/delete/', views.assessor_pool_block_delete, name='assessor_pool_block_delete'),
     path('assessor-developer/pools/randomize/', views.assessor_pool_randomize, name='assessor_pool_randomize'),
     path('assessor-developer/randomized/<int:assessment_id>/', views.assessor_randomized_snapshot, name='assessor_randomized_snapshot'),
     path('assessor-developer/paper/<int:paper_id>/', views.assessor_developer_paper, name='assessor_developer_paper'),
@@ -284,5 +287,20 @@ urlpatterns = [
 ]
 
 
+handler400 = "core.error_views.bad_request"
+handler403 = "core.error_views.permission_denied"
+handler404 = "core.error_views.page_not_found"
+handler500 = "core.error_views.server_error"
+
 if settings.DEBUG or getattr(settings, "SERVE_MEDIA", False):
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    # static() is a no-op when DEBUG is False, so register the view directly.
+    from django.urls import re_path
+    from django.views.static import serve as _serve_media
+
+    urlpatterns += [
+        re_path(
+            r"^%s(?P<path>.*)$" % settings.MEDIA_URL.lstrip("/"),
+            _serve_media,
+            {"document_root": settings.MEDIA_ROOT},
+        ),
+    ]

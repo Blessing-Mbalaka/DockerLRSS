@@ -209,7 +209,9 @@ class RoleBasedAccessTests(TestCase):
         )
         self.client.force_login(user)
         response = self.client.get(reverse('assessor_dashboard'))
-        self.assertEqual(response.status_code, 200)
+        self.assertRedirects(
+            response, reverse('assessor_developer'), fetch_redirect_response=False
+        )
 
     def test_moderator_can_access_moderator_dashboard(self):
         """Moderator can access their dashboard"""
