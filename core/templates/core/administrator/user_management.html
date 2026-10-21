@@ -627,9 +627,15 @@
                                         {{ user.get_role_display|default:"(none)" }}
                                     </td>
                                     <td>
-                                        <select class="form-select form-select-sm assign-role" data-url="{% url 'update_user_role' user.id %}">
+                                        <select class="form-select form-select-sm assign-role" data-prev="{{ user.role }}" data-url="{% url 'update_user_role' user.id %}">
                                             {% for value, label in role_choices %}
                                             <option value="{{ value }}" {% if user.role == value %}selected{% endif %}>{{ label }}</option>
+                                            {% endfor %}
+                                        </select>
+                                        <select class="form-select form-select-sm role-centre mt-2" aria-label="Assessment centre for {{ user.email }}" {% if user.role != 'assessment_center' %}style="display:none;"{% endif %}>
+                                            <option value="">Select assessment centre</option>
+                                            {% for centre in assessment_centres %}
+                                            <option value="{{ centre.id }}" data-qualification-id="{{ centre.qualification_assigned_id|default:'' }}" {% if user.assessment_centre_id == centre.id %}selected{% endif %}>{{ centre.name }}</option>
                                             {% endfor %}
                                         </select>
                                     </td>
@@ -792,6 +798,11 @@
     <script>
     // Role assignment handler with improved CSRF token handling and qualification field management
     document.querySelectorAll('.assign-role').forEach(function (select) {
+        select.dataset.prev = select.dataset.prev || select.value;
+        const rowCentreSelect = select.closest('tr').querySelector('.role-centre');
+        rowCentreSelect?.addEventListener('change', () => {
+            if (select.value === 'assessment_center') select.dispatchEvent(new Event('change'));
+        });
         select.addEventListener('change', function () {
             const url = this.dataset.url;
             const row = this.closest('tr');
@@ -843,9 +854,9 @@
                     if (qualificationSelect) {
                         qualificationSelect.disabled = this.value === 'assessment_center';
                         
-                        // If changing to assessment center, clear qualification
+                        // Display the centre qualification saved by the server.
                         if (this.value === 'assessment_center') {
-                            qualificationSelect.value = '';
+                            qualificationSelect.value = centreSelect.selectedOptions[0]?.dataset.qualificationId || '';
                         }
                     }
                 } else {
