@@ -245,8 +245,7 @@
       <select id="qualification-select" class="form-select" name="qualification" required>
         <option value="">-- Select Qualification --</option>
         {% for q in qualifications %}
-        <option value="{{ q.code }}" {% if request.user.qualification and q.id==request.user.qualification.id
-          %}selected{% endif %}>
+        <option value="{{ q.code }}" {% if request.user.qualification and q.id == request.user.qualification.id %}selected{% endif %}>
           {{ q.name }}
         </option>
         {% endfor %}

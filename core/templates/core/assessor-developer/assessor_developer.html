@@ -697,7 +697,7 @@
                         <table class="table table-hover align-middle">
                             <thead class="table-dark">
                                 <tr>
-                                    <th scope="col">EISA ID</th>
+                                    <th scope="col">ID</th><th scope="col">EISA ID</th>
                                     <th scope="col">Qualification</th>
                                     <th scope="col">Paper</th>
                                     <th scope="col">Status</th>
@@ -709,7 +709,7 @@
                             <tbody>
                                 {% for assessment in assessments %}
                                 <tr>
-                                    <td><strong>{{ assessment.eisa_id }}</strong></td>
+                                    <td>{{ assessment.id }}</td><td><strong>{{ assessment.eisa_id }}</strong></td>
                                     <td>{{ assessment.qualification.name|default:"-" }}</td>
                                     <td>{{ assessment.paper }}</td>
                                     <td>

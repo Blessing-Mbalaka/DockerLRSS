@@ -594,7 +594,7 @@
                         <table class="table table-hover align-middle">
                             <thead class="table-secondary">
                                 <tr>
-                                    <th>EISA ID</th>
+                                    <th scope="col">ID</th><th>EISA ID</th>
                                     <th>Qualification</th>
                                     <th>Paper</th>
                                     <th>Submitted By</th>
@@ -604,7 +604,7 @@
                             <tbody>
                                 {% for assessment in pending_assessments %}
                                 <tr>
-                                    <td><strong>{{ assessment.eisa_id }}</strong></td>
+                                    <td>{{ assessment.id }}</td><td><strong>{{ assessment.eisa_id }}</strong></td>
                                     <td>{{ assessment.qualification.name|default:"-" }}</td>
                                     <td>{{ assessment.paper|truncatewords:5 }}</td>
                                     <td>{{ assessment.created_by.get_full_name|default:assessment.created_by.username }}</td>
@@ -637,25 +637,25 @@
                         <table class="table table-hover align-middle">
                             <thead class="table-secondary">
                                 <tr>
-                                    <th>EISA ID</th>
+                                    <th scope="col">ID</th><th>EISA ID</th>
                                     <th>Qualification</th>
                                     <th>Paper</th>
                                     <th>Reviewed By</th>
                                     <th>Status</th>
-                                    <th>Date Forwarded</th>
+                                    <th>Date Forwarded</th><th>QDD Report</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for assessment in reviewed_assessments %}
                                 <tr>
-                                    <td><strong>{{ assessment.eisa_id }}</strong></td>
+                                    <td>{{ assessment.id }}</td><td><strong>{{ assessment.eisa_id }}</strong></td>
                                     <td>{{ assessment.qualification.name|default:"-" }}</td>
                                     <td>{{ assessment.paper|truncatewords:5 }}</td>
                                     <td>{{ assessment.status_changed_by.get_full_name|default:assessment.status_changed_by.username|default:"System" }}</td>
                                     <td>
                                         <span class="badge bg-success">{{ assessment.status }}</span>
                                     </td>
-                                    <td>{{ assessment.status_changed_at|date:"M j, Y H:i" }}</td>
+                                    <td>{{ assessment.status_changed_at|date:"M j, Y H:i" }}</td><td>{% if assessment.qdd_report %}<a href="{{ assessment.qdd_report.url }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-info">Download QDD Report</a>{% else %}<span class="text-muted small">No QDD report yet</span>{% endif %}</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>

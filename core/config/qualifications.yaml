@@ -2,17 +2,44 @@
   "qualifications": [
     {
       "name": "Maintenance Planner",
-      "modules": [],
+      "modules": [
+        {
+          "code": "1A",
+          "label": "Module 1A"
+        },
+        {
+          "code": "1B",
+          "label": "Module 1B"
+        }
+      ],
       "saqa_id": "101874"
     },
     {
       "name": "Quality Controller",
-      "modules": [],
+      "modules": [
+        {
+          "code": "1A",
+          "label": "Module 1A"
+        },
+        {
+          "code": "1B",
+          "label": "Module 1B"
+        }
+      ],
       "saqa_id": "117309"
     },
     {
       "name": "Chemical Plant Operator",
-      "modules": [],
+      "modules": [
+        {
+          "code": "1A",
+          "label": "Module 1A"
+        },
+        {
+          "code": "2A",
+          "label": "Module 2A"
+        }
+      ],
       "saqa_id": "102156"
     },
     {
@@ -24,10 +51,22 @@
       "name": "Test Documentation",
       "saqa_id": "99001",
       "modules": [
-        {"code": "1A", "label": "Module 1A - General Theory"},
-        {"code": "1B", "label": "Module 1B - Applied Practice"},
-        {"code": "2A", "label": "Module 2A - Technical Skills"},
-        {"code": "2B", "label": "Module 2B - Safety and Compliance"}
+        {
+          "code": "1A",
+          "label": "Module 1A - General Theory"
+        },
+        {
+          "code": "1B",
+          "label": "Module 1B - Applied Practice"
+        },
+        {
+          "code": "2A",
+          "label": "Module 2A - Technical Skills"
+        },
+        {
+          "code": "2B",
+          "label": "Module 2B - Safety and Compliance"
+        }
       ]
     }
   ]

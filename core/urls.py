@@ -25,10 +25,10 @@ urlpatterns = [
     path('administrator/qualifications/', views.qualification_management_view, name='manage_qualifications'),
     path('administrator/assessment-centres/', views.assessment_centres_view, name='assessment_centres'),
     path('administrator/review-saved/', views.review_saved_selector, name='review_saved_selector'),
-    path('administrator/review-saved/<int:paper_pk>/', views.load_saved_paper_view, name='load_saved_paper'),
+    path('administrator/review-saved/<str:paper_pk>/', views.load_saved_paper_view, name='load_saved_paper'),
     path('administrator/traditional-pipeline/', extractor_views.upload_view, name='exam_upload'),
     path('administrator/traditional-pipeline/paper/<int:paper_id>/', extractor_views.paper_view, name='exam_paper'),
-    path('papers/<int:paper_pk>/save-blocks/', views.save_blocks_view, name='save-blocks'),
+    path('papers/<str:paper_id>/save-blocks/', views.save_blocks_view, name='save-blocks'),
 
     # Question Bank URLs
     path('databank/', views.databank_view, name='databank'),
@@ -131,7 +131,7 @@ urlpatterns = [
     path('student/approved-assessments/', views.approved_assessments_for_learners, name='approved_assessments_for_learners'),
     path('student/assessments/<int:assessment_id>/write/', views.write_exam, name='write_exam'),
     path('student/assessments/<int:assessment_id>/submit/', views.submit_exam, name='submit_exam'),
-    path('paper/<int:paper_id>/register/', views.student_registration, name='student_registration'),
+    path('paper/<str:paper_id>/register/', views.student_registration, name='student_registration'),
     ################################################################################################################
     path('toggle-student-status/<int:student_id>/', views.toggle_student_status, name='toggle_student_status'),
 
@@ -144,21 +144,21 @@ urlpatterns = [
    #############################################################################################################################  
     #Demo Student URLS to be robusted later
     path('student/papers/', views.papers_demo, name='papers_demo'),
-    path('student/papers/<int:paper_id>/write/', views.write_paper_simple, name='write_paper_simple'),
-    path('student/papers/<int:paper_id>/submit/', views.submit_paper_simple, name='submit_paper_simple'),
+    path('student/papers/<str:paper_id>/write/', views.write_paper_simple, name='write_paper_simple'),
+    path('student/papers/<str:paper_id>/submit/', views.submit_paper_simple, name='submit_paper_simple'),
     
 
     # Tracking URLs
     path('track/', views.assessment_progress_tracker, name='assessment_progress_tracker'),
 
     # Randomize Paper Structure URL
-    path('randomize/paper/<int:paper_pk>/', 
+    path('randomize/paper/<str:paper_pk>/', 
          views.randomize_paper_structure_view, 
          name='randomize_paper_structure'),
 
     # Save Blocks URL
   # urls.py
-    path('save-blocks/<int:paper_id>/', views.save_blocks_view, name='save_blocks'),
+    path('save-blocks/<str:paper_id>/', views.save_blocks_view, name='save_blocks'),
 
 # Forgot password view
     path('forgot-password/', forgot_password, name='forgot_password'),

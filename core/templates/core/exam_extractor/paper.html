@@ -167,6 +167,8 @@
             <select name="paper_letter" id="paper-letter" data-current="{{ paper.paper_letter }}">
               <option value="">Select letter</option>
             </select>
+            <button type="button" class="btn-icon" id="add-set-letter">Next letter</button>
+            <small id="set-letter-help">A–Z, then AA, AB and onward.</small>
           </div>
         </div>
         <input type="hidden" name="title" id="paper-title" value="{{ paper.title }}" />
@@ -471,6 +473,7 @@
       });
     })();
   </script>
+  <script src="{% static 'core/exam_extractor/set_letters.js' %}"></script>
   <script type="application/json" id="module-catalog">{{ module_catalog_json|safe }}</script>
   <script>
     (function () {
@@ -521,6 +524,8 @@
 
       const initialNumber = normalize(numberSelect.dataset.current || numberSelect.value);
       const initialLetter = normalize(letterSelect.dataset.current || letterSelect.value);
+      const extraLetters = new Map();
+      const letterScope = () => `${moduleSelect.value}:${numberSelect.value}`;
 
       const modulesForSelection = () => {
         const selectedName = normalize(moduleSelect.value);
@@ -561,8 +566,8 @@
           }
           numberSelect.appendChild(opt);
         });
-        if (!numberSelect.value && ordered.length === 1) {
-          numberSelect.value = ordered[0];
+        if (!numberSelect.value && ordered.length) {
+          numberSelect.value = ordered.includes('1') ? '1' : ordered[0];
         }
       };
 
@@ -592,22 +597,11 @@
           entries.set(initialLetter, suffix);
         }
 
-        const defaultLetters = ['A', 'B', 'C', 'D'];
-        const hasConfiguredModules = entries.size > 0;
-        if (!hasConfiguredModules && selectedNumber) {
-          defaultLetters.forEach(letter => {
-            const code = `${selectedNumber}${letter}`;
-            if (!entries.has(code)) {
-              entries.set(code, letter);
-            }
-          });
-        } else if (!hasConfiguredModules) {
-          defaultLetters.forEach(letter => {
-            if (!entries.has(letter)) {
-              entries.set(letter, letter);
-            }
-          });
-        }
+        const defaultLetters = Array.from({length: 26}, (_, i) => String.fromCharCode(65 + i));
+        [...defaultLetters, ...(extraLetters.get(letterScope()) || [])].forEach(letter => {
+          const code = selectedNumber ? `${selectedNumber}${letter}` : letter;
+          if (!entries.has(code)) entries.set(code, letter);
+        });
 
         letterSelect.innerHTML = '<option value="">Select letter</option>';
         entries.forEach((label, code) => {
@@ -665,6 +659,21 @@
         computeTitle();
       });
       letterSelect.addEventListener('change', computeTitle);
+      document.getElementById('add-set-letter')?.addEventListener('click', () => {
+        const values = Array.from(letterSelect.options).map(opt => opt.value)
+          .filter(value => /^[A-Z]{1,10}$/.test(value))
+          .sort((a, b) => a.length - b.length || a.localeCompare(b));
+        const next = window.LMSSetLetters.next(values[values.length - 1] || 'Z');
+        if (!next) {
+          document.getElementById('set-letter-help').textContent = 'The 10-character storage limit has been reached.';
+          return;
+        }
+        const scope = letterScope();
+        extraLetters.set(scope, [...(extraLetters.get(scope) || []), next]);
+        rebuildLetterOptions();
+        letterSelect.value = next;
+        computeTitle();
+      });
     })();
   </script>
   <script>

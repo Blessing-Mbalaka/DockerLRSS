@@ -22,3 +22,15 @@ class DynamicLettersTests(SimpleTestCase):
         with mock.patch("core.qualification_registry.get_module_choices", return_value=[]):
             self.assertEqual(rc.allowed_letters("Nope", "9A"), [])
             self.assertEqual(rc.randomization_status("Nope", "9A"), "unconfigured")
+
+
+class FreshQualificationModuleTests(SimpleTestCase):
+    def test_main_qualifications_have_upload_module_choices(self):
+        from core.qualification_registry import get_module_choices
+        for name in ["Maintenance Planner", "Quality Controller", "Chemical Plant Operator"]:
+            with self.subTest(qualification=name):
+                choices = get_module_choices(name)
+                self.assertTrue(choices)
+                for choice in choices:
+                    self.assertTrue(choice.get("code"))
+                    self.assertTrue(rc.allowed_letters(name, choice["code"]))

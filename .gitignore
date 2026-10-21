@@ -6,3 +6,8 @@ db.sqlite3
 **.venv/
 media/
 var/
+
+# Local secrets and demo reset artifacts
+.env
+.env.local
+var/

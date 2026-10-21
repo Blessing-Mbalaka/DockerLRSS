@@ -735,6 +735,32 @@
                 </div>
             </div>
             {% endif %}
+
+            <div class="card mt-3">
+                <div class="card-header"><h5 class="mb-0">Recent Centre Batches</h5></div>
+                <div class="card-body table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead><tr><th>Batch ID</th><th>EISA Tool</th><th>Centre</th><th>Date</th><th>Status</th><th>Action</th></tr></thead>
+                        <tbody>
+                            {% for batch in recent_batches %}
+                            <tr>
+                                <td>{{ batch.id }}</td>
+                                <td>{{ batch.assessment.eisa_id }}<br><small>{{ batch.assessment.paper }}</small></td>
+                                <td>{{ batch.center.name }}</td>
+                                <td>{{ batch.assessment_date|date:"d M Y" }}</td>
+                                <td>{% if batch.submitted_to_center %}<span class="badge bg-success">Submitted to centre</span>{% else %}<span class="badge bg-secondary">Not yet submitted</span>{% endif %}</td>
+                                <td>{% if not batch.submitted_to_center %}
+                                    <form method="post" action="{% url 'submit_to_center' batch.id %}">
+                                        {% csrf_token %}<button type="submit" class="btn btn-sm btn-success">Submit to Centre</button>
+                                    </form>
+                                    {% else %}<span class="text-muted">Submitted</span>{% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}<tr><td colspan="6" class="text-center">No batches created yet.</td></tr>{% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -765,10 +791,16 @@
             const toastContainer = document.getElementById('toastContainer');
             const toast = document.createElement('div');
             toast.className = 'custom-toast success';
-            toast.innerHTML = `
-                <strong><i class="fas fa-check-circle me-2"></i>Success</strong>
-                <p class="mb-0" style="margin-top: 4px;">${message}</p>
-            `;
+            toast.setAttribute('role', 'status');
+            toast.setAttribute('aria-live', 'polite');
+            const heading = document.createElement('strong');
+            heading.textContent = 'Notification';
+            const body = document.createElement('p');
+            body.className = 'mb-0';
+            body.style.marginTop = '4px';
+            body.textContent = message;
+            toast.appendChild(heading);
+            toast.appendChild(body);
             toastContainer.appendChild(toast);
 
             // Auto-remove toast after 3 seconds
@@ -779,6 +811,11 @@
                 }, 300);
             }, 3000);
         }
+
+        // Show server-confirmed actions after a POST redirects back to this page.
+        {% for message in messages %}
+        showToast("{{ message|escapejs }}");
+        {% endfor %}
 
         // Auto-select qualification based on selected assessment centre
         function autoSelectQualification() {

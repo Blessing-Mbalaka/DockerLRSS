@@ -739,7 +739,7 @@
                         <table class="table table-hover align-middle">
                             <thead class="table-secondary">
                                 <tr>
-                                    <th>Assessment ID</th>
+                                    <th scope="col">ID</th><th>Assessment ID</th>
                                     <th>Qualification</th>
                                     <th>Paper Type</th>
                                     <th>View Paper</th>
@@ -751,7 +751,7 @@
                             <tbody>
                                 {% for a in assessments %}
                                 <tr>
-                                    <td class="fw-semibold">{{ a.eisa_id }}</td>
+                                    <td>{{ a.id }}</td><td class="fw-semibold">{{ a.eisa_id }}</td>
                                     <td>{{ a.qualification.name }}</td>
                                     <td>
                                         <span class="badge {% if a.paper_type == 'randomized' %}bg-info{% else %}bg-warning{% endif %}">
@@ -803,8 +803,8 @@
                                         {% endif %}
                                     </td>
 
-                                    <!-- Moderator Report -->
-                                    <td>
+                                    <!-- Moderator and QDD reports -->
+                                    <td>{% if a.qdd_report %}<a href="{{ a.qdd_report.url }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-info">Download QDD Report</a>{% else %}<span class="text-muted small">No QDD report yet</span>{% endif %}
                                         {% if a.moderator_report %}
                                         <a href="{{ a.moderator_report.url }}" class="btn btn-outline-success btn-sm"
                                             target="_blank">
@@ -856,7 +856,7 @@
                                 </tr>
                                 {% empty %}
                                 <tr>
-                                    <td colspan="7" class="text-center py-4">
+                                    <td colspan="8" class="text-center py-4">
                                         <div class="alert alert-info">
                                             <i class="fas fa-info-circle me-2"></i>No assessments to review.
                                         </div>
@@ -1028,6 +1028,7 @@
             }
         });
     </script>
+{% include "core/components/report_upload_validation.html" %}
 </body>
 
 </html>

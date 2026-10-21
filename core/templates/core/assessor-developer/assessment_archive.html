@@ -666,7 +666,7 @@
                         <select name="qualification" class="form-select">
                             <option value="">All Qualifications</option>
                             {% for q in all_qualifications %}
-                            <option value="{{ q }}" {% if q==filter_qualification %}selected{% endif %}>{{ q }}</option>
+                            <option value="{{ q }}" {% if q == filter_qualification %}selected{% endif %}>{{ q }}</option>
                             {% endfor %}
                         </select>
 
@@ -676,7 +676,7 @@
                         <select name="status" class="form-select">
                             <option value="">All Statuses</option>
                             {% for s in all_statuses %}
-                            <option value="{{ s }}" {% if s==filter_status %}selected{% endif %}>{{ s }}</option>
+                            <option value="{{ s }}" {% if s == filter_status %}selected{% endif %}>{{ s }}</option>
                             {% endfor %}
                         </select>
 
@@ -699,7 +699,7 @@
                         <table class="table table-hover">
                             <thead class="table-dark">
                                 <tr>
-                                    <th>EISA ID</th>
+                                    <th scope="col">ID</th><th>EISA ID</th>
                                     <th>Qualification</th>
                                     <th>Paper</th>
                                     <th>Status</th>
@@ -709,7 +709,7 @@
                             <tbody>
                                 {% for a in assessments %}
                                 <tr>
-                                    <td><strong>{{ a.eisa_id }}</strong></td>
+                                    <td>{{ a.id }}</td><td><strong>{{ a.eisa_id }}</strong></td>
                                     <td>{{ a.qualification }}</td>
                                     <td>{{ a.paper }}</td>
                                     <td>
@@ -729,7 +729,7 @@
                                 </tr>
                                 {% empty %}
                                 <tr>
-                                    <td colspan="5" class="text-center text-muted py-4">
+                                    <td colspan="6" class="text-center text-muted py-4">
                                         <i class="fa fa-inbox fa-2x mb-3"></i><br>
                                         No assessments found matching your criteria.
                                     </td>

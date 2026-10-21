@@ -86,6 +86,7 @@
           </ul>
         </div>
         <div class="detail-row"><label>QCTO Decision:</label><span>{{ assessment.qcto_notes|default:"Not reviewed" }}</span></div>
+        <div class="detail-row"><label>QDD Report:</label>{% if assessment.qdd_report %}<a href="{{ assessment.qdd_report.url }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-info">Download QDD Report</a>{% else %}<span class="text-muted small">No QDD report yet</span>{% endif %}</div>
         <button class="back-btn" onclick="window.history.back()">⬅ Back</button>
       </div>
     </div>

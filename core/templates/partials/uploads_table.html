@@ -84,9 +84,14 @@
                                         {% endif %}
                                         
                                         {% if not item.paper_link %}
-                                            <a href="{% url 'extractor_detail' item.id %}" class="btn btn-outline-success" title="Extract and structure paper">
-                                                <i class="fas fa-magic me-1"></i>Extract
-                                            </a>
+                                            <form method="post" action="{% url 'assessor_developer' %}" class="d-inline">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="action" value="open_pipeline">
+                                                <input type="hidden" name="assessment_id" value="{{ item.id }}">
+                                                <button type="submit" class="btn btn-outline-success" title="Extract and structure paper">
+                                                    <i class="fas fa-magic me-1"></i>Extract
+                                                </button>
+                                            </form>
                                         {% else %}
                                             <button class="btn btn-outline-success" disabled>
                                                 <i class="fas fa-check me-1"></i>Extracted
@@ -98,7 +103,7 @@
                                         </button>
                                     {% else %}
                                         <!-- Extracted/Randomized Paper Actions -->
-                                        <a href="/assessor/paper/{{ item.id }}/" class="btn btn-outline-primary" title="View paper details">
+                                        <a href="{% url 'load_saved_paper' item.id %}" class="btn btn-outline-primary" title="View paper details">
                                             <i class="fas fa-eye me-1"></i>View
                                         </a>
                                         

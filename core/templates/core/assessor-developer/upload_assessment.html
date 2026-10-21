@@ -147,7 +147,7 @@
           <select name="qualification" id="qualification" required>
             <option value="">-- Select Qualification --</option>
             {% for q in qualifications %}
-            <option value="{{ q.id }}" {% if q.id==request.user.qualification.id %}selected{% endif %}>
+            <option value="{{ q.id }}" {% if q.id == request.user.qualification.id %}selected{% endif %}>
               {{ q.name }}
             </option>
             {% endfor %}
@@ -208,7 +208,7 @@
         <table class="assessment-table">
           <thead>
             <tr>
-              <th>EISA ID</th>
+              <th scope="col">ID</th><th>EISA ID</th>
               <th>Qualification</th>
               <th>Paper</th>
               <th>Status</th>
@@ -218,7 +218,7 @@
           <tbody>
             {% for a in submissions %}
             <tr>
-              <td><strong>{{ a.eisa_id }}</strong></td>
+              <td>{{ a.id }}</td><td><strong>{{ a.eisa_id }}</strong></td>
               <td>{{ a.qualification }}</td>
               <td>{{ a.paper }}</td>
               <td>{{ a.status }}</td>
@@ -230,7 +230,7 @@
             </tr>
             {% empty %}
             <tr>
-              <td colspan="5" style="text-align:center;">
+              <td colspan="6" style="text-align:center;">
                 No assessments submitted yet.
               </td>
             </tr>

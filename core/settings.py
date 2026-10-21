@@ -189,6 +189,10 @@ from pathlib import Path
 import os
 from django.contrib.messages import constants as messages
 import dj_database_url
+import environ
+
+# Load local configuration without overriding variables set by the VPS service.
+environ.Env.read_env(Path(__file__).resolve().parent.parent / ".env", overwrite=False)
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
@@ -199,7 +203,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-_q5%&jqm$884a0b!an#-we^fx&22(%u+rdp1#7g83on=6f&moa'
+SECRET_KEY = os.getenv("SECRET_KEY", 'django-insecure-_q5%&jqm$884a0b!an#-we^fx&22(%u+rdp1#7g83on=6f&moa')
 
 def get_env_bool(name, default=False):
     value = os.getenv(name, str(default))
@@ -214,6 +218,7 @@ def get_env_list(name, default=""):
 DEBUG = get_env_bool("DEBUG", True)
 
 ALLOWED_HOSTS = get_env_list("ALLOWED_HOSTS", "localhost,127.0.0.1,162.35.167.180")
+SITE_URL = os.getenv("SITE_URL", "http://127.0.0.1:5858").rstrip("/")
 
 # Application definition
 

@@ -83,8 +83,8 @@
         <label for="type" class="form-label">Filter by Type:</label>
         <select name="type" id="type" onchange="this.form.submit()" class="form-select w-auto d-inline-block ms-2">
           <option value="">All Papers</option>
-          <option value="original" {% if filter_type=='original' %}selected{% endif %}>Original</option>
-          <option value="randomized" {% if filter_type=='randomized' %}selected{% endif %}>Randomized</option>
+          <option value="original" {% if filter_type == 'original' %}selected{% endif %}>Original</option>
+          <option value="randomized" {% if filter_type == 'randomized' %}selected{% endif %}>Randomized</option>
         </select>
       </form>
 

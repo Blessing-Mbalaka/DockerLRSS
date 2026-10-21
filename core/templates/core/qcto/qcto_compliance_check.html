@@ -63,7 +63,7 @@
       <table>
         <thead>
           <tr>
-            <th>EISA ID</th>
+            <th scope="col">ID</th><th>EISA ID</th>
             <th>Qualification</th>
             <th>Paper No.</th>
             <th>Issues Found</th>
@@ -74,7 +74,7 @@
         <tbody>
           {% for a in assessments %}
         <tr>
-  <td>{{ a.eisa_id }}</td>
+  <td>{{ a.id }}</td><td>{{ a.eisa_id }}</td>
   <td>{{ a.get_qualification_display }}</td>
   <td>
     {% if a.paper_type == 'randomized' %}
@@ -97,7 +97,7 @@
     {% endif %}
   </td>
   <td>{{ a.comment|default:"-" }}</td>
-  <td colspan="2" class="action-buttons">
+  <td colspan="3" class="action-buttons">
     <form method="post" action="{% url 'qcto_moderate_assessment' a.eisa_id %}">
       {% csrf_token %}
       <textarea
@@ -117,7 +117,7 @@
 </tr>
 
           {% empty %}
-          <tr><td colspan="6">No assessments available.</td></tr>
+          <tr><td colspan="7">No assessments available.</td></tr>
           {% endfor %}
         </tbody>
       </table>

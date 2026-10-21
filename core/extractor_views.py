@@ -323,7 +323,14 @@ def save_paper_meta(request, paper_id):
     paper = get_object_or_404(ExtractorPaper, id=paper_id)
     paper.module_name = (request.POST.get("module_name") or "").strip()
     paper.paper_number = (request.POST.get("paper_number") or "").strip()
-    paper.paper_letter = (request.POST.get("paper_letter") or "").strip()
+    letter = (request.POST.get("paper_letter") or "").strip().upper()
+    if letter and not re.fullmatch(r"[A-Z]{1,10}", letter):
+        messages.error(request, "Set letter must contain 1 to 10 letters (A–Z, AA, AB, and onward).")
+        return redirect("exam_paper", paper_id=paper.pk)
+    if len(paper.paper_number) > 50:
+        messages.error(request, "Set number is too long.")
+        return redirect("exam_paper", paper_id=paper.pk)
+    paper.paper_letter = letter
     # optional title override
     if "title" in request.POST:
         paper.title = (request.POST.get("title") or paper.title or "").strip()

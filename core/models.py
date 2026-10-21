@@ -245,6 +245,9 @@ class Assessment(models.Model):
         help_text="Word document report from qcto"
     )
     
+    qdd_report = models.FileField(upload_to="qdd_reports/", blank=True, null=True,
+                                  help_text="Word document report from QDD")
+
     # ETQA fields - only used for randomized papers
     is_selected_by_etqa = models.BooleanField(default=False)
     memo_file = models.FileField(

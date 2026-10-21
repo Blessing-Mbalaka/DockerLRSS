@@ -299,6 +299,18 @@ def handle_user_creation(request):
             messages.error(request, "Please fill in all required fields.")
             return redirect("user_management")
 
+        student_number = request.POST.get("student_number", "").strip() if role == "learner" else None
+        if role == "learner":
+            if not student_number:
+                messages.error(request, "Please enter a student number for the learner.")
+                return redirect("user_management")
+            if len(student_number) > 50:
+                messages.error(request, "Student number must be 50 characters or fewer.")
+                return redirect("user_management")
+            if CustomUser.objects.filter(student_number=student_number).exists():
+                messages.error(request, "A learner with this student number already exists.")
+                return redirect("user_management")
+
         # Special handling for assessment center role
         if role == "assessment_center":
             center_id = request.POST.get("assessment_centre", "").strip()
@@ -352,6 +364,7 @@ def handle_user_creation(request):
             first_name=first_name,
             last_name=last_name,
             role=role,
+            student_number=student_number,
             qualification=qualification,
             is_active=True,
             is_staff=(role != "learner"),
@@ -4116,7 +4129,7 @@ def qcto_dashboard(request):
     ).order_by("-created_at")
     
     reviewed_assessments = Assessment.objects.filter(
-        status__in=["QDD Review",  "Submitted to ETQA"]
+        Q(status__in=["QDD Review", "Submitted to ETQA"]) | Q(qdd_report__isnull=False) & ~Q(qdd_report="")
     ).order_by("-status_changed_at")
     
     # Calculate stats for completed reviews forwarded to QDD/ETQA
@@ -4568,6 +4581,7 @@ def etqa_dashboard(request):
             "approved_assessments": approved_assessments,
             "assessments_for_etqa": assessments_for_etqa,
             "created_batch": created_batch,
+            "recent_batches": Batch.objects.select_related("center", "qualification", "assessment").order_by("-id")[:10],
         },
     )
 
@@ -4686,11 +4700,18 @@ def assessment_center_view(request):
     return render(request, "assessment_center.html", {"batches": batches})
 
 
+@login_required
+@require_POST
 def submit_to_center(request, batch_id):
-    batch = Batch.objects.get(id=batch_id)
-    batch.submitted_to_center = True
-    batch.save()
-    return redirect("etqa_dashboard")
+    batch = get_object_or_404(Batch.objects.select_related("center", "assessment"), pk=batch_id)
+    if batch.submitted_to_center:
+        messages.info(request, f"{batch.assessment.eisa_id} is already submitted to {batch.center.name} for {batch.assessment_date:%d %b %Y}.")
+    else:
+        batch.submitted_to_center = True
+        batch.save(update_fields=["submitted_to_center"])
+        messages.success(request, f"{batch.assessment.eisa_id} submitted to {batch.center.name} for {batch.assessment_date:%d %b %Y}.")
+    query = urlencode({"qualification_id": batch.qualification_id, "center_id": batch.center_id})
+    return redirect(f"{reverse('etqa_dashboard')}?{query}")
 
 
 @login_required
@@ -5178,7 +5199,7 @@ def save_blocks_view(request, paper_id):
             return JsonResponse(
                 {
                     "status": "success",
-                    "redirect": reverse("view_paper", args=[paper_id]),
+                    "redirect": reverse("load_saved_paper", args=[paper_id]),
                 }
             )
         else:
@@ -5498,11 +5519,18 @@ def submit_exam(request, assessment_id):
     paper = assessment.paper_link
 
     student_number = (getattr(request.user, "student_number", None) or "").strip()
-    if not student_number or getattr(request.user, "role", "") != "learner":
+    if getattr(request.user, "role", "") != "learner":
         messages.error(
             request,
             "This submission route is reserved for learners. You're signed in as staff/superuser, so no attempt was recorded.",
         )
+        return redirect("student_dashboard")
+
+    if not student_number:
+        message = "Your learner account has no student number. Please complete your student registration before submitting."
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({"success": False, "message": message}, status=400)
+        messages.error(request, message)
         return redirect("student_dashboard")
 
     attempt_number = existing_attempts + 1
@@ -6934,7 +6962,7 @@ def qdd_moderate_assessment(request, eisa_id):
     - approve: Forward to ETQA (status -> 'Submitted to ETQA')
     - return: Return to Moderator (status -> 'pending_moderation')
     
-    Optional file upload for QDD review report (saved to moderator_report field).
+    Required QDD review report on approval, stored separately from moderator reports.
     Includes permission check for qualification matching.
     """
     assessment = get_object_or_404(Assessment, eisa_id=eisa_id)
@@ -6952,15 +6980,18 @@ def qdd_moderate_assessment(request, eisa_id):
     action = request.POST.get("action")
 
     if action == "approve":
-        # Forward to ETQA
-        if "moderator_report" in request.FILES:
-            report_file = request.FILES["moderator_report"]
+        # Keep the moderator report intact; QDD owns a separate report.
+        report_file = request.FILES.get("qdd_report") or request.FILES.get("moderator_report")
+        if not report_file and not assessment.qdd_report:
+            messages.error(request, "Please upload a QDD report before forwarding to ETQA.")
+            return redirect("qdd_developer_dashboard")
+        if report_file:
             allowed_extensions = [".doc", ".docx"]
             file_extension = os.path.splitext(report_file.name)[1].lower()
             if file_extension not in allowed_extensions:
                 messages.error(request, "Please upload a Word document (.doc or .docx).")
                 return redirect("qdd_developer_dashboard")
-            assessment.moderator_report.save(
+            assessment.qdd_report.save(
                 f"qdd_report_{eisa_id}{file_extension}", report_file
             )
         
@@ -6972,7 +7003,7 @@ def qdd_moderate_assessment(request, eisa_id):
                 "status",
                 "status_changed_at",
                 "status_changed_by",
-                "moderator_report",
+                "qdd_report",
             ]
         )
         messages.success(

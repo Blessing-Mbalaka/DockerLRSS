@@ -714,7 +714,7 @@
                         <table class="table table-hover">
                             <thead class="table-secondary">
                                 <tr>
-                                    <th>Qualification</th>
+                                    <th>ID</th><th>Qualification</th>
                                     <th>Paper</th>
                                     <th>Status</th>
                                     <th>Uploaded By</th>
@@ -724,7 +724,7 @@
                             <tbody>
                                 {% for tool in tools %}
                                 <tr>
-                                    <td>{{ tool.qualification.name }}</td>
+                                    <td>{{ tool.id }}</td><td>{{ tool.qualification.name }}</td>
                                     <td>{{ tool.paper }}</td>
                                     <td>{{ tool.status }}</td>
                                     <td>
@@ -738,7 +738,7 @@
                                         {% if tool.paper_type == "randomized" %}
                                         <a href="{% url 'download_randomized_pdf' tool.id %}?format=docx"
                                             class="btn btn-sm btn-outline-primary">
-                                            Download
+                                            Download Word
                                         </a>
                                         {% elif tool.file %}
                                         <a href="{{ tool.file.url }}" target="_blank"
@@ -752,7 +752,7 @@
                                 </tr>
                                 {% empty %}
                                 <tr>
-                                    <td colspan="5" class="text-center">No assessments uploaded yet.</td>
+                                    <td colspan="6" class="text-center">No assessments uploaded yet.</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>

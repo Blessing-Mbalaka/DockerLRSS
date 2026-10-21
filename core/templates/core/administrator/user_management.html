@@ -689,6 +689,11 @@
                             <label for="newUserEmail" class="form-label">Email</label>
                             <input type="email" id="newUserEmail" name="email" class="form-control" required>
                         </div>
+                        <div class="mb-3" id="learnerStudentNumberContainer" style="display:none;">
+                            <label for="newUserStudentNumber" class="form-label">Student Number</label>
+                            <input type="text" id="newUserStudentNumber" name="student_number" class="form-control" maxlength="50">
+                            <div class="form-text">Required for learners to submit assessments.</div>
+                        </div>
                         <div class="mb-3">
                             <label for="newUserRole" class="form-label">Role</label>
                             <select id="newUserRole" name="role" class="form-select" required>
@@ -870,6 +875,12 @@
         // Function to handle assessment center visibility and field states
         function handleAssessmentCentreVisibility() {
             const isAssessmentCentre = roleSelect.value === 'assessment_center';
+            const isLearner = roleSelect.value === 'learner';
+            document.getElementById('learnerStudentNumberContainer').style.display = isLearner ? 'block' : 'none';
+            const studentNumberInput = document.getElementById('newUserStudentNumber');
+            studentNumberInput.required = isLearner;
+            studentNumberInput.disabled = !isLearner;
+
             
             assessmentCentreContainer.style.display = isAssessmentCentre ? 'block' : 'none';
             qualificationSelect.required = !isAssessmentCentre;

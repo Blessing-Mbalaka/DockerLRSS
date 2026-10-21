@@ -15,7 +15,7 @@
         <table class="table table-hover align-middle">
             <thead class="table-secondary">
                 <tr>
-                    <th scope="col">EISA ID</th>
+                    <th scope="col">ID</th><th scope="col">EISA ID</th>
                     <th scope="col">Qualification</th>
                     <th scope="col">Paper</th>
                     <th scope="col">Submitted</th>
@@ -26,7 +26,7 @@
             <tbody>
                 {% for asmt in assessments %}
                 <tr>
-                    <td class="fw-semibold">{{ asmt.eisa_id }}</td>
+                    <td>{{ asmt.id }}</td><td class="fw-semibold">{{ asmt.eisa_id }}</td>
                     <td>{{ asmt.qualification.name|default:"-" }}</td>
                     <td>{{ asmt.paper }}</td>
                     <td>{{ asmt.created_at|date:"M j, Y H:i" }}</td>
@@ -82,7 +82,8 @@
                                 class="d-flex flex-column flex-lg-row gap-2 moderation-inline-form">
                                 {% csrf_token %}
                                 <div class="file-input-wrapper" style="flex: 1;">
-                                    <input type="file" name="moderator_report"
+                                    <input type="file" name="qdd_report"
+                                        data-has-existing-report="{% if asmt.qdd_report %}1{% else %}0{% endif %}"
                                         id="file-{{ asmt.id }}"
                                         accept=".doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                                         class="qdd-report-input">
@@ -112,7 +113,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="6" class="text-center py-4">{{ empty_message|default:"No assessments pending review." }}</td>
+                    <td colspan="7" class="text-center py-4">{{ empty_message|default:"No assessments pending review." }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -126,7 +127,7 @@
         <table class="table table-hover align-middle">
             <thead class="table-secondary">
                 <tr>
-                    <th scope="col">EISA ID</th>
+                    <th scope="col">ID</th><th scope="col">EISA ID</th>
                     <th scope="col">Qualification</th>
                     <th scope="col">Paper</th>
                     <th scope="col">{% if role == 'qdd' %}Reviewed{% else %}Moderated{% endif %} Date</th>
@@ -137,7 +138,7 @@
             <tbody>
                 {% for asmt in archived_assessments %}
                 <tr>
-                    <td class="fw-semibold">{{ asmt.eisa_id }}</td>
+                    <td>{{ asmt.id }}</td><td class="fw-semibold">{{ asmt.eisa_id }}</td>
                     <td>{{ asmt.qualification.name|default:"-" }}</td>
                     <td>{{ asmt.paper }}</td>
                     <td>{{ asmt.status_changed_at|date:"M j, Y H:i"|default:"-" }}</td>
@@ -192,8 +193,8 @@
                             {% endif %}
 
                             <!-- Download Review/Moderation Report -->
-                            {% if asmt.moderator_report %}
-                            <a href="{{ asmt.moderator_report.url }}" target="_blank"
+                            {% if asmt.qdd_report %}
+                            <a href="{{ asmt.qdd_report.url }}" target="_blank"
                                 class="btn btn-sm btn-outline-info text-nowrap">
                                 <i class="fas fa-file-word me-1"></i> Download {% if role == 'qdd' %}Review{% else %}Moderator{% endif %} Report
                             </a>
@@ -205,7 +206,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="6" class="text-center py-4">
+                    <td colspan="7" class="text-center py-4">
                         <i class="fas fa-check-circle fa-3x text-muted mb-3"></i>
                         <h5 class="text-muted">No archived assessments yet.</h5>
                         <p class="text-muted">Completed reviews will appear here.</p>

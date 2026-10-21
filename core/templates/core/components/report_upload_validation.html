@@ -1,0 +1,40 @@
+<script>
+(function () {
+    function warn(message) {
+        let toast = document.getElementById('report-validation-toast');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'report-validation-toast';
+            toast.setAttribute('role', 'alert');
+            toast.setAttribute('aria-live', 'assertive');
+            toast.style.cssText = 'position:fixed;top:20px;right:20px;z-index:11000;max-width:380px;padding:16px 22px;background:#842029;color:white;border-radius:8px;box-shadow:0 4px 18px #0004';
+            document.body.appendChild(toast);
+        }
+        toast.textContent = message;
+        toast.hidden = false;
+        clearTimeout(toast.hideTimer);
+        toast.hideTimer = setTimeout(function () { toast.hidden = true; }, 5000);
+    }
+    function validate(event, form, button) {
+        if (!form || !button || button.name !== 'action' || button.value !== 'approve') return;
+        const input = form.querySelector('input[type="file"][name$="_report"]');
+        if (!input) return;
+        const file = input.files && input.files[0];
+        let message = '';
+        if (!file && input.dataset.hasExistingReport !== '1') message = 'Please upload a report before approving or forwarding this assessment.';
+        else if (file && !/\.(doc|docx)$/i.test(file.name)) message = 'Please upload a Word report (.doc or .docx).';
+        if (message) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            warn(message);
+        }
+    }
+    document.addEventListener('click', function (event) {
+        const button = event.target.closest('button[type="submit"]');
+        if (button) validate(event, button.form, button);
+    }, true);
+    document.addEventListener('submit', function (event) {
+        validate(event, event.target, event.submitter || event.target.querySelector('button[name="action"][value="approve"]'));
+    }, true);
+})();
+</script>

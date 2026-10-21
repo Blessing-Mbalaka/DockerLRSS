@@ -35,8 +35,9 @@ class _AdminPoolControlsParser(HTMLParser):
 
 class PoolBlockCrudTests(TestCase):
     def setUp(self):
-        self.qualification = Qualification.objects.create(
-            name="Maintenance Planner", saqa_id="QP123"
+        # post_migrate already seeds this qualification from the registry.
+        self.qualification, _ = Qualification.objects.get_or_create(
+            name="Maintenance Planner", defaults={"saqa_id": "101874"}
         )
         self.other_qualification = Qualification.objects.create(
             name="Other Qualification", saqa_id="QP999"

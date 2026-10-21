@@ -24,7 +24,7 @@
     <table class="table table-bordered table-striped">
       <thead>
         <tr>
-          <th>EISA ID</th>
+          <th scope="col">ID</th><th>EISA ID</th>
           <th>Qualification</th>
           <th>Status</th>
           <th>Currently With</th>
@@ -36,7 +36,7 @@
       <tbody>
         {% for assessment in assessments %}
         <tr>
-          <td>{{ assessment.eisa_id }}</td>
+          <td>{{ assessment.id }}</td><td>{{ assessment.eisa_id }}</td>
           <td>{{ assessment.qualification.name }}</td>
           <td>{{ assessment.status }}</td>
           <td>
@@ -79,7 +79,7 @@
           </td>
         </tr>
         {% empty %}
-        <tr><td colspan="7" class="text-center">No assessments to track.</td></tr>
+        <tr><td colspan="8" class="text-center">No assessments to track.</td></tr>
         {% endfor %}
       </tbody>
     </table>
