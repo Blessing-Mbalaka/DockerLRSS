@@ -516,6 +516,13 @@
                     </a>
                 </li>
 
+                <li class="nav-item">
+                    <a href="{% url 'centre_released_papers' %}" class="nav-item">
+                        <i class="fa fa-file-pdf me-2"></i>Released papers
+                    </a>
+                </li>
+
+                {% include 'core/assessment-center/_incident_nav.html' %}
                 <button class="gradient-button w-100 py-0">
                     <a href="{% url 'logout' %}" class="fix"> Log Out</a>
                 </button>

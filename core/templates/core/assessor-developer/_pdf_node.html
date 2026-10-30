@@ -2,6 +2,7 @@
 {% load exam_extras %}
 {% with memo=question_memos|dict_get:node.id %}
 <div class="pdf-node pdf-node--{{ node.node_type|default_if_none:'unknown'|lower }}">
+  {% if node.node_type != "cover_page" %}
   <div class="pdf-node__header">
     {% if node.number %}
     <span class="pdf-node__number">{{ node.number }}</span>
@@ -13,6 +14,7 @@
     <span class="pdf-node__marks">{{ node.marks }} marks</span>
     {% endif %}
   </div>
+  {% endif %}
 
   {% if node.text and not node.content %}
   <div class="pdf-node__text">{{ node.text|linebreaksbr }}</div>

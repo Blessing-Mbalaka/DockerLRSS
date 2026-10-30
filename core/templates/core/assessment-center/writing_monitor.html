@@ -1,0 +1,480 @@
+{% load static tz %}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Writing Monitor | CHIETA</title><meta http-equiv="refresh" content="30">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <style>
+        body {
+            margin: 0;
+            font-family: Georgia, 'Times New Roman', Times, serif;
+            background-color: #ecf0f1;
+        }
+
+        .dashboard-container {
+            display: flex;
+            flex-direction: row;
+            min-height: 100vh;
+        }
+
+        .sidebar ul li {
+            transition: background-color 0.3s ease;
+            border-top: 1.5px solid #580658;
+            border-radius: 10px;
+            color: #580658;
+        }
+
+        .fixy {
+            border-color: #ffffff;
+            width: 100%;
+            height: 40px;
+            color: whitesmoke;
+            border-radius: 10px;
+            margin-bottom: -2px;
+            background-color: #8f6620;
+        }
+
+        .fix {
+            width: 100%;
+            height: 40px;
+            border-radius: 10px;
+            color: whitesmoke;
+            border-color: #f9f9f9;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: none;
+        }
+
+        button:hover {
+            background-color: #ffffff;
+            color: #4d4747;
+            border-color: #007BFF;
+        }
+
+        .sidebar ul li:hover {
+            background-color: #8f6620;
+            color: white;
+            cursor: pointer;
+            border-radius: 10px;
+            height: 30px;
+            list-style: none;
+        }
+
+        .nav-item {
+            color: rgb(81, 3, 102);
+            text-decoration: none;
+            transition: color 0.3s;
+            font-size: 16px;
+        }
+
+        .nav-item:hover {
+            color: rgb(249, 249, 249);
+            transition: color 0.3s;
+        }
+
+        .sidebar {
+            width: 210px;
+            min-height: 100vh;
+            font-size: 13px;
+            background: linear-gradient(to bottom, rgb(195, 193, 193), white, rgb(160, 160, 160), rgb(240, 239, 239), rgb(240, 239, 239), rgb(91, 60, 131));
+            padding: 20px;
+            border-radius: 0px 0px 0px 0px;
+            border-right: 1px solid #8f6620;
+            box-shadow: inset 0 -2px 3px rgba(75, 0, 130, 0.7);
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 1000;
+            overflow-y: auto;
+        }
+
+        .sidebar .graduate-icon {
+            border-radius: 20px;
+            height: 110px;
+            width: 105px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .sidebar ul {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        .sidebar ul li {
+            margin: 20px 0;
+            display: flex;
+            align-items: center;
+        }
+
+        .sidebar ul li i {
+            margin-right: 10px;
+        }
+
+        .content {
+            flex-grow: 1;
+            padding: 20px;
+            margin-left: 240px;
+            width: calc(100% - 240px);
+            background-color: #efeaea;
+            background-image: url("{% static 'core/images/Frame.png' %}");
+            background-repeat: no-repeat;
+            background-size: cover;
+            opacity: 0.9;
+        }
+
+        .topbar {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .welcome-box {
+            background: linear-gradient(to right, white, rgb(215, 213, 213), rgb(240, 239, 239), rgb(91, 60, 131));
+            background-size: cover;
+            background-position: center;
+            padding: 20px;
+            margin-top: 20px;
+            font-size: 20px;
+            font-weight: bold;
+            color: #4d4747;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            text-align: left;
+            min-height: 25vh;
+            position: relative;
+            border-left: 4px solid rgb(81, 3, 102);
+        }
+
+        .welcome-box .date {
+            font-size: 14px;
+            margin-top: 5px;
+            font-weight: normal;
+        }
+
+        .date {
+            font-size: 16px;
+            color: grey;
+        }
+
+        .gradient-button {
+            background-color: #3a063a;
+            color: white;
+            border: none;
+            border-radius: 25px;
+            padding: 10px 20px;
+            font-size: 12px;
+            margin-top: 10px;
+            cursor: pointer;
+            font-weight: bold;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .gradient-button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 10px rgba(0, 0, 0, 0.15);
+            background-color: #8f6620;
+        }
+
+        .highlight {
+            color: red;
+            font-weight: bold;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+
+        .welcome-container {
+            position: relative;
+            margin: 20px;
+        }
+
+        .image-container {
+            position: absolute;
+            top: -37px;
+            right: 0;
+            z-index: 2;
+        }
+
+        /* Card and table styling updates */
+        .card {
+            background: linear-gradient(to right, white, rgb(240, 239, 239));
+            border: 1px solid #8f6620;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        .card-header {
+            background: linear-gradient(to right, #3a063a, #580658);
+            color: white;
+            font-weight: bold;
+            border-bottom: 1px solid #8f6620;
+        }
+
+        .table-dark {
+            background: linear-gradient(to right, #3a063a, #580658) !important;
+            color: white;
+        }
+
+        .table-hover tbody tr:hover {
+            background-color: rgba(143, 102, 32, 0.1);
+        }
+
+        .btn-outline-primary {
+            border-color: #3a063a;
+            color: #3a063a;
+        }
+
+        .btn-outline-primary:hover {
+            background-color: #3a063a;
+            color: white;
+        }
+
+        .btn-outline-success {
+            border-color: #8f6620;
+            color: #8f6620;
+        }
+
+        .btn-outline-success:hover {
+            background-color: #8f6620;
+            color: white;
+        }
+
+        .btn-success {
+            background-color: #3a063a;
+            border-color: #3a063a;
+        }
+
+        .btn-success:hover {
+            background-color: #8f6620;
+            border-color: #8f6620;
+        }
+
+        .btn-outline-warning {
+            border-color: #8f6620;
+            color: #8f6620;
+        }
+
+        .btn-outline-warning:hover {
+            background-color: #8f6620;
+            color: white;
+        }
+
+        .btn-primary {
+            background-color: #3a063a;
+            border-color: #3a063a;
+        }
+
+        .btn-primary:hover {
+            background-color: #8f6620;
+            border-color: #8f6620;
+        }
+
+        .btn-secondary {
+            background-color: #6c757d;
+            border-color: #6c757d;
+        }
+
+        .btn-secondary:hover {
+            background-color: #5a6268;
+            border-color: #545b62;
+        }
+
+        .btn-danger {
+            background-color: #dc3545;
+            border-color: #dc3545;
+        }
+
+        .btn-danger:hover {
+            background-color: #c82333;
+            border-color: #bd2130;
+        }
+
+        .badge.bg-primary {
+            background-color: #3a063a !important;
+        }
+
+        .badge.bg-success {
+            background-color: #8f6620 !important;
+        }
+
+        .alert-info {
+            background-color: rgba(143, 102, 32, 0.1);
+            border-color: #8f6620;
+            color: #3a063a;
+        }
+
+        /* Batches table specific styling */
+        .batches-table-container {
+            background: linear-gradient(to right, white, rgb(240, 239, 239));
+            border: 1px solid #8f6620;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 1200px) {
+            .content {
+                margin-left: 220px;
+                width: calc(100% - 220px);
+            }
+
+            .image-container {
+                position: relative;
+                top: 0;
+                margin-bottom: 15px;
+            }
+
+            .welcome-box {
+                height: auto;
+                padding-bottom: 30px;
+            }
+        }
+
+        @media (max-width: 992px) {
+            .sidebar {
+                width: 180px;
+            }
+
+            .content {
+                margin-left: 190px;
+                width: calc(100% - 190px);
+            }
+
+            .image-container img {
+                width: 300px;
+                height: auto;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .dashboard-container {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                position: relative;
+                width: 100%;
+                min-height: auto;
+                height: auto;
+                padding: 10px;
+            }
+
+            .content {
+                margin-left: 0;
+                width: 100%;
+            }
+
+            .topbar input[type="search"] {
+                width: 90%;
+            }
+
+            .welcome-box {
+                height: auto;
+                padding: 15px;
+            }
+
+            .image-container {
+                position: relative;
+                top: 0;
+                left: 0;
+                text-align: center;
+            }
+
+            .image-container img {
+                width: 250px;
+                height: auto;
+            }
+
+            .gradient-button {
+                display: flex;
+                justify-content: center;
+                margin-left: 0;
+                align-items: center;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .sidebar {
+                padding: 10px 5px;
+            }
+
+            .sidebar .graduate-icon {
+                width: 80px;
+                height: 80px;
+            }
+
+            .topbar input[type="search"] {
+                width: 80%;
+            }
+
+            .sidebar ul li {
+                margin: 10px 0;
+                justify-content: center;
+            }
+
+            .welcome-box {
+                font-size: 18px;
+                height: auto;
+                padding: 10px;
+            }
+
+            .table-responsive {
+                font-size: 14px;
+            }
+        }
+
+        @media (max-width: 400px) {
+            .sidebar {
+                width: 100%;
+                padding: 5px;
+            }
+
+            .sidebar ul li {
+                font-size: 12px;
+            }
+
+            .fixy,
+            .fix {
+                font-size: 12px;
+            }
+
+            .content {
+                padding: 10px;
+            }
+
+            .welcome-box {
+                font-size: 16px;
+            }
+
+            .gradient-button {
+                padding: 8px 15px;
+                font-size: 11px;
+            }
+        }
+    </style>
+<style>
+.monitor-card{background:#fff;border-radius:16px;padding:24px;margin:24px 0;box-shadow:0 4px 18px #39204a0a}.monitor-card h2{font-size:24px;color:#580658}.monitor-table{width:100%;border-collapse:separate;border-spacing:0;font-size:15px}.monitor-table th{background:#f4eff7;color:#580658;font-weight:bold;padding:16px;border-bottom:2px solid #e6dced;white-space:nowrap}.monitor-table td{padding:16px;border-bottom:1px solid #eee8f1;vertical-align:middle}.monitor-table tbody tr:hover{background:#faf7fc}.monitor-table tbody tr:last-child td{border-bottom:0}.monitor-badge{display:inline-block;border-radius:20px;padding:6px 10px;font:13px Arial,sans-serif;background:#fff2db;color:#79520c;white-space:nowrap}.monitor-badge.reviewed{background:#e6f4ed;color:#286548}.review-button{background:#580658;border:1px solid #580658;color:white;border-radius:8px;padding:9px 14px;font:14px Arial,sans-serif;white-space:nowrap}.review-button:hover{background:#79378a;color:white;border-color:#79378a}.review-button:focus-visible,.monitor-refresh:focus-visible{outline:3px solid #c89c43;outline-offset:3px}.monitor-time{font:13px Arial,sans-serif;color:#6c6270;white-space:nowrap}.monitor-empty{text-align:center;padding:36px!important;color:#75677c}.monitor-intro{color:#6c6270;font-size:15px}.monitor-refresh{display:inline-block;color:#580658;border:1px solid #cdbbd7;border-radius:8px;padding:8px 14px;text-decoration:none;background:white}.sidebar a.active{font-weight:bold}.sidebar ul li:hover{height:auto;min-height:30px}.monitor-scroll{overflow-x:auto}.monitor-card .section-heading{display:flex;gap:16px;align-items:center;justify-content:space-between;margin-bottom:18px}@media(max-width:768px){.monitor-card{padding:16px}.monitor-table th,.monitor-table td{padding:12px}}
+</style></head>
+
+{% timezone "Africa/Johannesburg" %}<body><div class="dashboard-container">
+{% include 'core/assessment-center/_sidebar.html' %}
+<main class="content"><div class="welcome-box"><h2><i class="fas fa-shield-alt me-2" aria-hidden="true"></i>Assessment writing monitor</h2><p>Monitor learner writing sessions and review browser alerts.</p><p class="monitor-intro">Updates every 30 seconds. Browser alerts require review and do not establish misconduct. Last save indicates the last successful database save; outages may delay alerts.</p></div>
+<section class="monitor-card"><div class="section-heading"><h2 class="mb-0"><i class="fas fa-pen me-2" aria-hidden="true"></i>Writing sessions</h2><a class="monitor-refresh" href="{% url 'writing_monitor' %}"><i class="fas fa-sync-alt me-1" aria-hidden="true"></i>Refresh</a></div>
+<div class="monitor-scroll"><table class="monitor-table"><caption class="visually-hidden">Learner writing sessions and last successful saves</caption><thead><tr><th scope="col">Learner</th><th scope="col">Assessment</th><th scope="col">Last saved</th></tr></thead><tbody>{% for session in sessions %}<tr><td><strong>{{ session.student }}</strong></td><td>{{ session.assessment }}</td><td class="monitor-time">{{ session.last_saved_at|date:"d M Y H:i:s" }}</td></tr>{% empty %}<tr><td class="monitor-empty" colspan="3">No writing sessions yet. Sessions appear when learners open a paper.</td></tr>{% endfor %}</tbody></table></div></section>
+<section class="monitor-card"><div class="section-heading"><h2 class="mb-0"><i class="fas fa-exclamation-triangle me-2" aria-hidden="true"></i>Incident notifications</h2><span class="monitor-badge">{{ writing_incident_count }} awaiting review</span></div>
+<div class="monitor-scroll"><table class="monitor-table"><caption class="visually-hidden">Browser incidents and invigilator review status</caption><thead><tr><th scope="col">Time</th><th scope="col">Learner</th><th scope="col">Assessment</th><th scope="col">Alert</th><th scope="col">Review</th></tr></thead><tbody>
+{% for incident in incidents %}<tr><td class="monitor-time">{{ incident.created_at|date:"d M Y H:i:s" }}</td><td><strong>{{ incident.session.student }}</strong></td><td>{{ incident.session.assessment }}</td><td><span class="monitor-badge">{% if incident.kind == 'tab_hidden' %}Tab hidden{% elif incident.kind == 'navigation' %}Navigation{% elif incident.kind == 'offline' %}Connection lost{% elif incident.kind == 'reconnected' %}Reconnected{% else %}{{ incident.kind }}{% endif %}</span></td><td>{% if incident.reviewed_at %}<span class="monitor-badge reviewed"><i class="fas fa-check me-1" aria-hidden="true"></i>Reviewed</span><div class="monitor-time mt-2">{{ incident.reviewed_by }}<br>{{ incident.reviewed_at|date:"d M Y H:i:s" }}</div>{% else %}<form method="post">{% csrf_token %}<input type="hidden" name="incident_id" value="{{ incident.pk }}"><button class="review-button" type="submit"><i class="fas fa-check me-1" aria-hidden="true"></i>Mark reviewed</button></form>{% endif %}</td></tr>{% empty %}<tr><td class="monitor-empty" colspan="5">No incidents reported.</td></tr>{% endfor %}</tbody></table></div></section></main></div></body>{% endtimezone %}</html>

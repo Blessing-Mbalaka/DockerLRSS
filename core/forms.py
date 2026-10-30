@@ -25,7 +25,7 @@ class CustomUserForm(forms.ModelForm):
 class AssessmentCentreForm(forms.ModelForm):
     class Meta:
         model = AssessmentCentre
-        fields = ['name', 'location', 'qualification_assigned']
+        fields = ['name', 'location', 'accreditation_number', 'qualification_assigned']
 
 
 

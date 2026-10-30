@@ -250,10 +250,43 @@ class RandomizedSnapshotEditingTests(TestCase):
 
     def test_assessor_developer_forward_to_moderator_returns_to_dashboard(self):
         self.assessment.memo_file.name = "memos/randomized/test-memo.docx"
-        self.assessment.save(update_fields=["memo_file"])
+        self.assessment.assessor_report.name = "assessor_reports/report.docx"
+        self.assessment.save(update_fields=["memo_file", "assessor_report"])
 
         response = self.client.post(self.url, {"action": "forward_moderator"})
 
         self.assertRedirects(response, reverse("assessor_developer"))
         self.assessment.refresh_from_db()
         self.assertEqual(self.assessment.status, "Submitted to Moderator")
+
+    def test_combined_cleanup_matches_three_actions_and_preserves_duration(self):
+        from core.views import (strip_non_bold_from_blocks, strip_color_from_blocks,
+            strip_color_from_blocks_html, get_red_color_range)
+        content = [{"type": "text", "runs": [
+            {"text": "Keep question", "bold": True},
+            {"text": "Remove answer", "bold": False},
+            {"text": "Red answer", "bold": True, "color": "FF0000"}]}]
+        self.node.content = content
+        self.node.save()
+        self.paper.structure_json = {"duration_hours": 2.5}
+        self.paper.save()
+        colors = get_red_color_range()
+        expected = strip_non_bold_from_blocks(content)
+        expected = strip_color_from_blocks(expected, colors)
+        expected = strip_color_from_blocks(expected, colors)
+        expected, _ = strip_color_from_blocks_html(expected, colors)
+        response = self.client.post(self.url, {"action": "clean_student_paper"})
+        self.assertEqual(response.status_code, 302)
+        self.node.refresh_from_db()
+        self.paper.refresh_from_db()
+        self.assertEqual(self.node.content, expected)
+        self.assertNotEqual(self.node.content, content)
+        self.assertEqual(self.paper.structure_json["duration_hours"], 2.5)
+
+    def test_combined_cleanup_is_read_only_for_learner(self):
+        self.user.role = "learner"
+        self.user.save()
+        before = self.node.content
+        self.client.post(self.url, {"action": "clean_student_paper"})
+        self.node.refresh_from_db()
+        self.assertEqual(self.node.content, before)

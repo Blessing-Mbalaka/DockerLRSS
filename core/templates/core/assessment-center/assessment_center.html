@@ -503,6 +503,13 @@
                 </li>
                 {% endif %}
 
+                <li class="nav-item">
+                    <a href="{% url 'centre_released_papers' %}" class="nav-item">
+                        <i class="fa fa-file-pdf me-2"></i>Released papers
+                    </a>
+                </li>
+
+                {% include 'core/assessment-center/_incident_nav.html' %}
                 <button class="gradient-button w-100 py-0">
                     <a href="{% url 'logout' %}" class="fix"> Log Out</a>
                 </button>
@@ -589,7 +596,8 @@
                                 <td>{{ batch.number_of_learners }}</td>
                                 <td>
                                     <div class="d-flex flex-wrap gap-2 mb-2">
-                                        {% with asmt=batch.assessment %}
+                                        <a href="{% url 'centre_released_papers' %}" class="btn btn-success btn-sm">Released papers</a>
+                                        {% comment %}{% with asmt=batch.assessment %}
                                         {% if asmt.paper_type == 'randomized' %}
                                         <a href="{% url 'assessor_randomized_snapshot' asmt.id %}"
                                             class="btn btn-outline-primary btn-sm">
@@ -612,7 +620,7 @@
                                         {% else %}
                                         <span class="text-muted small fst-italic">Paper not available</span>
                                         {% endif %}
-                                        {% endwith %}
+                                        {% endwith %}{% endcomment %}
                                     </div>
 
                                     {% if batch.assessment.status == "Submitted to ETQA" %}

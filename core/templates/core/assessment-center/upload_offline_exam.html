@@ -542,6 +542,13 @@
                     </a>
                 </li>
 
+                <li class="nav-item">
+                    <a href="{% url 'centre_released_papers' %}" class="nav-item">
+                        <i class="fa fa-file-pdf me-2"></i>Released papers
+                    </a>
+                </li>
+
+                {% include 'core/assessment-center/_incident_nav.html' %}
                 <button class="gradient-button w-100 py-0">
                     <a href="{% url 'logout' %}" class="fix"> Log Out</a>
                 </button>
@@ -620,9 +627,9 @@
                             </div>
                         </div>
                         <div class="mb-3">
-                            <label for="pdf_file" class="form-label">Upload Exam Paper (PDF) *</label>
+                            <label for="pdf_file" class="form-label">Upload Completed Learner Paper (PDF) *</label>
                             <input type="file" class="form-control" id="pdf_file" name="pdf_file" accept=".pdf" required>
-                            <div class="form-text">Maximum file size: 10MB. Only PDF files are accepted.</div>
+                            <div class="form-text">Upload the learner’s completed, unlocked PDF for marking. Maximum file size: 10MB. You can view and download your upload below. The password applies only to the paper downloaded from Released papers.</div>
                         </div>
                         <div class="d-flex justify-content-between">
                             <button type="submit" class="btn btn-success" {% if not offline_students %}disabled{% endif %}>
@@ -702,10 +709,10 @@
                                         <div class="btn-group-vertical btn-group-sm">
                                             <!-- Original Submission Actions -->
                                             <div class="btn-group btn-group-sm mb-1">
-                                                <a href="{{ submission.pdf_file.url }}" target="_blank" class="btn btn-outline-primary btn-sm" title="View Original PDF">
+                                                <a href="{{ submission.pdf_file.url }}" target="_blank" class="btn btn-outline-primary btn-sm" title="View uploaded PDF" aria-label="View uploaded PDF">
                                                     <i class="fas fa-eye"></i>
                                                 </a>
-                                                <a href="{{ submission.pdf_file.url }}" download class="btn btn-outline-success btn-sm" title="Download Original PDF">
+                                                <a href="{{ submission.pdf_file.url }}" download class="btn btn-outline-success btn-sm" title="Download uploaded PDF" aria-label="Download uploaded PDF">
                                                     <i class="fas fa-download"></i>
                                                 </a>
                                             </div>
@@ -722,7 +729,7 @@
                                             </div>
                                             {% else %}
                                             <div class="text-center">
-                                                <small class="text-muted">No external paper</small>
+                                                <small class="text-muted">External moderation pending</small>
                                             </div>
                                             {% endif %}
                                         </div>

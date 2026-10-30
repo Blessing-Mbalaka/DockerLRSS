@@ -314,13 +314,13 @@
         }
 
         .btn-success {
-            background-color: #3a063a;
-            border-color: #3a063a;
+            background-color: #198754;
+            border-color: #198754;
         }
 
         .btn-success:hover {
-            background-color: #8f6620;
-            border-color: #8f6620;
+            background-color: #157347;
+            border-color: #146c43;
         }
 
         .btn-outline-warning {
@@ -767,7 +767,7 @@
                                     <tbody>
                                         {% for asmt in pending_assessments %}
                                         <tr>
-                                            <td>{{ asmt.id }}</td><td class="fw-semibold">{{ asmt.eisa_id }}</td>
+                                            <td>{{ asmt.id }}</td><td class="fw-semibold">{{ asmt.eisa_id }}{% if asmt.assessor_report %}<br><a class="btn btn-outline-success btn-sm" href="{% url 'workflow_report_download' asmt.id 'assessor' %}">Assessor report</a>{% endif %}</td>
                                             <td>{{ asmt.qualification.name|default:"-" }}</td>
                                             <td>{{ asmt.paper }}</td>
                                             <td>{{ asmt.created_at|date:"M j, Y H:i" }}</td>

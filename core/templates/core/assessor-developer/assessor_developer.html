@@ -1311,6 +1311,7 @@
                         const body = new URLSearchParams({
                             module: tile.module,
                             letter: tile.letter,
+                            set_number: detailEl.querySelector('[data-role="output-set-number"]').value,
                             mode
                         });
 
@@ -1412,7 +1413,11 @@
 
                         row.appendChild(makeCell(entry.question_number));
                         row.appendChild(makeCell(entry.parent_number));
-                        row.appendChild(makeCell(entry.qtype));
+                        const typeCell = makeCell(entry.qtype);
+                        const usage = document.createElement('span'); usage.className = 'badge bg-secondary ms-2';
+                        usage.textContent = `Used: ${entry.usage_count || 0} set(s)`;
+                        usage.title = `Sets: ${(entry.used_sets || []).join(', ') || 'None'}`;
+                        typeCell.appendChild(usage); row.appendChild(typeCell);
                         row.appendChild(makeCell(entry.marks));
 
                         const previewCell = document.createElement('td');
@@ -1469,6 +1474,11 @@
                     randomizeBtn.className = 'btn btn-primary';
                     randomizeBtn.textContent = 'Randomize From This Pool';
                     randomizeBtn.addEventListener('click', () => runRandomize(tile));
+                    const setLabel = document.createElement('label');
+                    setLabel.textContent = 'Set number '; const setInput = document.createElement('input');
+                    setInput.type = 'text'; setInput.inputMode = 'numeric'; setInput.pattern = '[0-9]+';
+                    setInput.maxLength = 50; setInput.value = '1'; setInput.dataset.role = 'output-set-number';
+                    setLabel.appendChild(setInput); actions.appendChild(setLabel);
                     actions.appendChild(note);
                     actions.appendChild(randomizeBtn);
                     detailEl.appendChild(actions);

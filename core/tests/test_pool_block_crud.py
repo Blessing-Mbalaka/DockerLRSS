@@ -335,7 +335,7 @@ class PoolBlockCrudTests(TestCase):
         linked_box.refresh_from_db()
         self.assertEqual(linked_box.marks, "2")
 
-    def test_role_based_moderator_can_read_and_update_all_pools(self):
+    def test_moderator_cannot_read_or_update_authoring_pools(self):
         moderator = get_user_model().objects.create_user(
             email="moderator@example.com",
             username="moderator",
@@ -350,10 +350,10 @@ class PoolBlockCrudTests(TestCase):
             {"question_number": "1.1", "marks": "11", "qtype": "question"},
         )
 
-        self.assertEqual(pool_response.status_code, 200)
-        self.assertEqual(update_response.status_code, 200)
+        self.assertEqual(pool_response.status_code, 403)
+        self.assertEqual(update_response.status_code, 403)
         self.box.refresh_from_db()
-        self.assertEqual(self.box.marks, "11")
+        self.assertNotEqual(self.box.marks, "11")
 
     def test_assessor_cannot_mutate_another_qualifications_pool(self):
         other_paper = ExtractorPaper.objects.create(

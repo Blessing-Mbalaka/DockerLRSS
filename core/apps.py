@@ -8,6 +8,7 @@ class CoreConfig(AppConfig):
 
     def ready(self):
         from . import qualification_registry
+        from . import activity_audit
 
         def sync_registry(sender, **kwargs):
             qualification_registry.sync_registry_to_db()

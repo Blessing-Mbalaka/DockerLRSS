@@ -1,4 +1,4 @@
-﻿{% load static %}
+{% load static %}
 <!doctype html>
 <html lang="en">
 
@@ -161,6 +161,7 @@
             <select name="paper_number" id="paper-number" data-current="{{ paper.paper_number }}">
               <option value="">Select number</option>
             </select>
+            <button type="button" class="btn-icon" id="add-set-number">Choose another number</button>
           </div>
           <div>
             <label>Set Letter</label>
@@ -202,6 +203,7 @@
               Q: {{ bx.question_number|default:"n/a" }}
               {% if bx.parent_number %}&bull; Parent: {{ bx.parent_number }}{% endif %}
               &bull; Marks: {{ bx.marks|default:"n/a" }}
+              <span class="badge">Used: {{ bx.set_uses.count }} set(s)</span>
             </span>
             <span class="actions">
               <button type="button" class="btn-icon view-content" title="View captured content"
@@ -513,7 +515,7 @@
         };
       };
 
-      const defaultPaperNumbers = Array.from({ length: 20 }, (_, idx) => String(idx + 1));
+      const defaultPaperNumbers = Array.from({ length: 100 }, (_, idx) => String(idx + 1));
 
       const allModules = Object.values(catalog).reduce((acc, entry) => {
         if (Array.isArray(entry)) {
@@ -536,10 +538,20 @@
         return allModules;
       };
 
+      document.getElementById('add-set-number').addEventListener('click', () => {
+        const value = window.prompt('Enter a positive set number:', numberSelect.value || '1');
+        if (value === null) return;
+        if (!/^[0-9]{1,50}$/.test(value) || /^0+$/.test(value)) { window.alert('Enter a positive whole number.'); return; }
+        const normalized = value.replace(/^0+/, '');
+        if (!Array.from(numberSelect.options).some(option => option.value === normalized)) {
+          numberSelect.add(new Option(normalized, normalized));
+        }
+        numberSelect.value = normalized; numberSelect.dispatchEvent(new Event('change'));
+      });
       const rebuildNumberOptions = () => {
         const previous = normalize(numberSelect.value) || initialNumber;
         const modules = modulesForSelection();
-        const set = new Map();
+        const set = new Map(defaultPaperNumbers.map(num => [num, true]));
         modules.forEach(mod => {
           const numberPart = parseCode(mod.code).number;
           if (numberPart) {

@@ -1,0 +1,6 @@
+<li class="nav-item">
+    <a href="{% url 'writing_monitor' %}" class="nav-item{% if request.resolver_match.url_name == 'writing_monitor' %} active{% endif %}">
+        <i class="fa fa-exclamation-triangle me-2" aria-hidden="true" style="color:#dc3545"></i>Incident notifications
+        {% if writing_incident_count %}<span style="display:inline-block;background:#dc3545;color:white;border-radius:12px;padding:2px 7px;font-size:12px;margin-left:4px" aria-label="{{ writing_incident_count }} unreviewed incidents">{{ writing_incident_count }}</span>{% endif %}
+    </a>
+</li>

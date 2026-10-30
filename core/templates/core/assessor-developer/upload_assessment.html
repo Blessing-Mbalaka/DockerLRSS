@@ -36,6 +36,23 @@
       z-index: 10;
     }
 
+    .sidebar img {
+      display: block;
+      max-width: 100%;
+      width: 100%;
+      height: auto;
+    }
+
+    .sidebar .nav-list {
+      list-style: none;
+      padding: 0;
+    }
+
+    .sidebar .nav-link {
+      display: block;
+      padding: 10px 0;
+    }
+
     .button-group {
       display: flex;
       flex-wrap: wrap;
@@ -189,6 +206,8 @@
         </div>
 
         <div class="form-section">
+          <label for="assessor-report">Assessor Developer Report (required before forwarding)</label>
+          <input type="file" id="assessor-report" name="assessor_report" accept=".pdf,.doc,.docx">
           <label for="commentBox">Comment (Optional)</label>
           <textarea id="commentBox" name="comment_box" rows="3" placeholder="Write any notes..."></textarea>
         </div>

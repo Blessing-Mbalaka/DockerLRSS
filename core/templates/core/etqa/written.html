@@ -1,0 +1,20 @@
+{% extends 'core/etqa/release_base.html' %}
+{% block title %}Written assessment history{% endblock %}
+{% block content %}
+<h1>Written</h1>
+<p>History of online and offline learner submissions, including the original paper and each uploaded marking or moderation copy.</p>
+<div class="scroll"><table><thead><tr><th>Learner</th><th>Assessment</th><th>Submitted</th><th>Attempt</th><th>Results</th><th>Papers</th></tr></thead><tbody>
+{% for s in page_obj %}<tr>
+<td>{{ s.student_display }}<br>{{ s.student_number }}{% if s.is_offline %}<br><small>Offline</small>{% endif %}</td>
+<td>{% if s.assessment %}{{ s.assessment.eisa_id }}{% elif s.paper %}{{ s.paper.name }}{% else %}Offline / legacy submission{% endif %}</td>
+<td>{{ s.submitted_at|date:"d M Y H:i" }}</td><td>{{ s.attempt_number }}</td>
+<td>{% if s.results_are_released %}Released {{ s.results_release_at|date:"d M Y H:i" }}{% else %}Held{% endif %}<br>{{ s.status }}</td>
+<td>{% if s.pdf_file %}<a href="{% url 'etqa_written_download' s.pk 'original' %}">Original submission</a><br>{% endif %}
+{% if s.marked_paper %}<a href="{% url 'etqa_written_download' s.pk 'marker' %}">Marker copy</a><br>{% endif %}
+{% if s.internal_marked_paper %}<a href="{% url 'etqa_written_download' s.pk 'internal' %}">Internal review</a><br>{% endif %}
+{% if s.external_marked_paper %}<a href="{% url 'etqa_written_download' s.pk 'external' %}">External review</a>{% endif %}
+{% if not s.pdf_file and not s.marked_paper and not s.internal_marked_paper and not s.external_marked_paper %}No files uploaded{% endif %}</td>
+</tr>{% empty %}<tr><td colspan="6">No written submissions yet.</td></tr>{% endfor %}
+</tbody></table></div>
+{% if page_obj.has_other_pages %}<p>{% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}">Previous</a> · {% endif %}Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}{% if page_obj.has_next %} · <a href="?page={{ page_obj.next_page_number }}">Next</a>{% endif %}</p>{% endif %}
+{% endblock %}

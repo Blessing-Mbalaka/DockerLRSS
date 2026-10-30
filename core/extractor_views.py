@@ -1,3 +1,4 @@
+from core.author_permissions import assessor_author_required
 
 
 from django.contrib import messages
@@ -78,6 +79,7 @@ from .utils.extractor import (
     gadzira_suggest_boxes,
 )
 
+@assessor_author_required
 def paper_view(request, paper_id):
     paper = get_object_or_404(ExtractorPaper, id=paper_id)
     blocks = list(
@@ -195,6 +197,7 @@ def paper_view(request, paper_id):
         },
     )
 
+@assessor_author_required
 @require_POST
 def create_box(request, paper_id):
     paper = get_object_or_404(ExtractorPaper, id=paper_id)
@@ -256,6 +259,7 @@ def create_box(request, paper_id):
         }
     })
 
+@assessor_author_required
 @require_POST
 def update_box(request, paper_id, box_id):
     paper = get_object_or_404(ExtractorPaper, id=paper_id)
@@ -300,6 +304,7 @@ def update_box(request, paper_id, box_id):
         }
     })
 
+@assessor_author_required
 def autoclassify(request, paper_id):
     paper = get_object_or_404(ExtractorPaper, id=paper_id)
     # Lightweight heuristics + existing LLM tagger
@@ -309,6 +314,7 @@ def autoclassify(request, paper_id):
     return redirect("exam_paper", paper_id=paper.id)
 
 
+@assessor_author_required
 @require_POST
 def save_system_prompt(request, paper_id):
     paper = get_object_or_404(ExtractorPaper, id=paper_id)
@@ -318,6 +324,7 @@ def save_system_prompt(request, paper_id):
     return redirect("exam_paper", paper_id=paper.id)
 
 
+@assessor_author_required
 @require_POST
 def save_paper_meta(request, paper_id):
     paper = get_object_or_404(ExtractorPaper, id=paper_id)
@@ -327,8 +334,8 @@ def save_paper_meta(request, paper_id):
     if letter and not re.fullmatch(r"[A-Z]{1,10}", letter):
         messages.error(request, "Set letter must contain 1 to 10 letters (A–Z, AA, AB, and onward).")
         return redirect("exam_paper", paper_id=paper.pk)
-    if len(paper.paper_number) > 50:
-        messages.error(request, "Set number is too long.")
+    if paper.paper_number and (not re.fullmatch(r"[0-9]{1,50}", paper.paper_number) or int(paper.paper_number) < 1):
+        messages.error(request, "Set number must be a positive whole number of up to 50 digits.")
         return redirect("exam_paper", paper_id=paper.pk)
     paper.paper_letter = letter
     # optional title override
@@ -339,6 +346,7 @@ def save_paper_meta(request, paper_id):
     return redirect(reverse("exam_paper", args=[paper.id]))
 
 
+@assessor_author_required
 def ai_draw_blocks(request, paper_id):
     """Return AI/heuristic suggestions for blocks to draw as boxes.
 
@@ -349,20 +357,25 @@ def ai_draw_blocks(request, paper_id):
     return JsonResponse({"ok": True, "items": items, "strategy": strategy})
 
 
+@assessor_author_required
 def gadzira_draw_blocks(request, paper_id):
     """Return suggestions driven purely by YAML heuristics."""
     paper = get_object_or_404(ExtractorPaper, id=paper_id)
     items, strategy = gadzira_suggest_boxes(paper)
     return JsonResponse({"ok": True, "items": items, "strategy": strategy})
 
+@assessor_author_required
 @require_POST
 def delete_box(request, paper_id, box_id):
     paper = get_object_or_404(ExtractorPaper, id=paper_id)
     box = get_object_or_404(ExtractorUserBox, id=box_id, paper=paper)
+    if box.set_uses.exists():
+        return JsonResponse({"ok": False, "message": "Used questions cannot be deleted."}, status=400)
     box.delete()
     return JsonResponse({"ok": True, "deleted": box_id})
 
 
+@assessor_author_required
 def convert_emf(request, paper_id):
     paper = get_object_or_404(ExtractorPaper, id=paper_id)
     summary = convert_emf_images(paper)
@@ -372,6 +385,7 @@ def convert_emf(request, paper_id):
     return redirect("exam_paper", paper_id=paper.id)
 
 
+@assessor_author_required
 def bank_info(request, paper_id):
     """Return JSON with modules and optional counts for a selected module."""
     _ = get_object_or_404(ExtractorPaper, id=paper_id)  # existence
@@ -390,6 +404,7 @@ def bank_info(request, paper_id):
     return JsonResponse({"ok": True, **data})
 
 
+@assessor_author_required
 @require_POST
 def randomize_test(request, paper_id):
     """Build a randomized test using question_numbers from this paper and a selected module."""
@@ -417,13 +432,21 @@ def randomize_test(request, paper_id):
             return HttpResponseBadRequest("invalid box_ids")
         boxes = boxes_for_ids_preserve_order(ids)
     else:
-        boxes = pick_random_for_qnums(module, qnums)
+        boxes = pick_random_for_qnums(module, qnums, request.POST.get("set_number") or paper.paper_number or "1")
     title = request.POST.get("title") or f"Randomized Test - {module}"
-    test = build_test_from_boxes(module, title, boxes)
+    from django.db import IntegrityError
+    try:
+        expected = set(qnums)
+        if not expected.issubset({box.question_number for box in boxes}):
+            return JsonResponse({"ok": False, "message": "This set has exhausted questions. Choose a new set number or capture alternatives."}, status=400)
+        test = build_test_from_boxes(module, title, boxes, request.POST.get("set_number") or paper.paper_number or "1")
+    except (ValueError, IntegrityError) as exc:
+        return JsonResponse({"ok": False, "message": str(exc)}, status=400)
     test_url = reverse("exam_view_test", args=[test.id])
     return JsonResponse({"ok": True, "test_id": test.id, "test_url": test_url})
 
 
+@assessor_author_required
 def bank_preview(request, paper_id):
     """Return a randomized preview selection for the chosen module, without persisting.
 
@@ -450,6 +473,7 @@ def bank_preview(request, paper_id):
     return JsonResponse({"ok": True, "items": items})
 
 
+@assessor_author_required
 def mbalaka_markdown(request, paper_id):
     paper = get_object_or_404(ExtractorPaper, id=paper_id)
     md = paper_to_markdown(paper)
@@ -458,6 +482,7 @@ def mbalaka_markdown(request, paper_id):
     )
 
 
+@assessor_author_required
 @require_POST
 def mbalaka_classify(request, paper_id):
     paper = get_object_or_404(ExtractorPaper, id=paper_id)
@@ -467,6 +492,7 @@ def mbalaka_classify(request, paper_id):
     return redirect("exam_paper", paper_id=paper.id)
 
 
+@assessor_author_required
 def delimit_rubric(request, paper_id):
     paper = get_object_or_404(ExtractorPaper, id=paper_id)
     summary = delimit_rubric_sections(paper)
@@ -475,6 +501,7 @@ def delimit_rubric(request, paper_id):
     return redirect("exam_paper", paper_id=paper.id)
 
 
+@assessor_author_required
 def get_box(request, paper_id, box_id):
     """Return the latest box JSON (coords + meta) from DB.
 
@@ -501,11 +528,13 @@ def get_box(request, paper_id, box_id):
     })
 
 
+@assessor_author_required
 def view_test(request, test_id):
     test = get_object_or_404(ExtractorTestPaper, id=test_id)
     items = list(test.items.order_by("order_index"))
     return render(request, "core/exam_extractor/test.html", {"test": test, "items": items})
 
+@assessor_author_required
 def upload_view(request):
     if request.method == "POST" and request.FILES.get("docx"):
         docx_file = request.FILES["docx"]

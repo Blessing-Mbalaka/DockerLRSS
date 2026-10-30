@@ -53,6 +53,7 @@ class Qualification(models.Model):
 class CustomUser(AbstractUser):
     ROLE_CHOICES = [
         ('default',         'Awaiting Activation'),
+        ('it',              'IT Monitor'),
         ('admin',           'Administrator'),
         ('assessor_dev',    'Assessor (Developer)'),
         ('moderator',       'Moderator (Developer)'),
@@ -75,6 +76,7 @@ class CustomUser(AbstractUser):
                               )
     email                    = models.EmailField(unique=True)
         ###########################################
+    identity_number = models.CharField(max_length=30, blank=True)
     student_number = models.CharField(
         max_length=50, 
         unique=True, 
@@ -245,6 +247,8 @@ class Assessment(models.Model):
         help_text="Word document report from qcto"
     )
     
+    assessor_report = models.FileField(upload_to="assessor_reports/", blank=True, null=True)
+
     qdd_report = models.FileField(upload_to="qdd_reports/", blank=True, null=True,
                                   help_text="Word document report from QDD")
 
@@ -287,7 +291,7 @@ class Assessment(models.Model):
         default="Unknown Module"
     )
     module_number = models.CharField(
-        max_length=2,
+        max_length=60,
         help_text="Module identifier (1A, 1B, etc)",
         default="1A"
     )
@@ -505,6 +509,7 @@ class ChecklistItem(models.Model):
 
 
 class AssessmentCentre(models.Model):
+    accreditation_number = models.CharField(max_length=100, blank=True)
     name = models.CharField(max_length=200)
     location = models.CharField(max_length=255, blank=True)
     qualification_assigned = models.ForeignKey(Qualification, on_delete=models.SET_NULL, null=True)
@@ -515,6 +520,10 @@ class AssessmentCentre(models.Model):
 # Batch model ___________________________________________________________________________________________#
 
 class Batch(models.Model):
+    locked_paper_pdf = models.BinaryField(null=True, blank=True, editable=False)
+    paper_release_at = models.DateTimeField(null=True, blank=True)
+    paper_released_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name="centre_papers_released")
     center = models.ForeignKey('AssessmentCentre', on_delete=models.CASCADE)
     qualification = models.ForeignKey('Qualification', on_delete=models.CASCADE)
     assessment = models.ForeignKey('Assessment', on_delete=models.CASCADE)
@@ -823,6 +832,16 @@ class ExtractorUserBox(models.Model):
         return f"{self.question_number or 'Box'} on paper {self.paper_id}"
 
 
+class QuestionUse(models.Model):
+    box = models.ForeignKey(ExtractorUserBox, on_delete=models.PROTECT, related_name="set_uses")
+    set_number = models.CharField(max_length=50)
+    paper = models.ForeignKey(Paper, on_delete=models.SET_NULL, null=True, related_name="question_uses")
+    used_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['box', 'set_number'], name='question_once_per_set')]
+
+
 class OfflineStudent(models.Model):
     """Learners captured by assessment centres when offline."""
     STATUS_PRESENT = 'present'
@@ -1001,8 +1020,40 @@ class ExamSubmission(models.Model):
     def __str__(self):
         return f"{self.student_number} - Attempt {self.attempt_number}"
 
+    results_release_at = models.DateTimeField(null=True, blank=True)
+    results_released_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name="results_released")
+    learner_cover = models.JSONField(default=dict, blank=True)
+    writing_notes = models.JSONField(default=dict, blank=True)
+
+    @property
+    def results_are_released(self):
+        return bool(self.results_release_at and self.results_release_at <= now()
+                    and self.marks is not None and self.internal_marks is not None
+                    and self.external_marks is not None)
+
     def save(self, *args, **kwargs):
         """Ensure student details are always populated from related records."""
+        if self.pk and self.results_release_at:
+            grade_fields = ['marks', 'total_marks', 'feedback', 'marked_paper',
+                'internal_marks', 'internal_total_marks', 'internal_feedback', 'internal_marked_paper',
+                'external_marks', 'external_total_marks', 'external_feedback', 'external_marked_paper']
+            previous = type(self).objects.filter(pk=self.pk).values(*grade_fields).first()
+            def comparable(value):
+                return value.name if hasattr(value, 'name') else value
+            def differs(field):
+                before, after = previous[field], comparable(getattr(self, field))
+                if 'marks' in field and before is not None and after is not None:
+                    return Decimal(str(before)) != Decimal(str(after))
+                if field.endswith('marked_paper'):
+                    return (before or '') != (after or '')
+                return before != after
+            changed = previous and any(differs(field) for field in grade_fields)
+            if changed:
+                self.results_release_at = None
+                self.results_released_by = None
+                if kwargs.get('update_fields') is not None:
+                    kwargs['update_fields'] = set(kwargs['update_fields']) | {'results_release_at', 'results_released_by'}
         if self.offline_student:
             self.student_number = self.offline_student.student_number
             full_name = f"{self.offline_student.first_name} {self.offline_student.last_name}".strip()
@@ -1076,8 +1127,8 @@ class PdfAnnotation(models.Model):
     class Meta:
         ordering = ['page', 'created_at']
         indexes = [
-            models.Index(fields=['submission', 'created_by']),
-            models.Index(fields=['submission', 'role']),
+            models.Index(fields=['submission', 'created_by'], name='core_pdfann_submiss_569b8b_idx'),
+            models.Index(fields=['submission', 'role'], name='core_pdfann_submiss_f7e32d_idx'),
         ]
 
     def save(self, *args, **kwargs):
@@ -1123,9 +1174,66 @@ class GradeChangeLog(models.Model):
     class Meta:
         ordering = ['-changed_at']
         indexes = [
-            models.Index(fields=['submission', 'tier']),
-            models.Index(fields=['changed_by', 'changed_at']),
+            models.Index(fields=['submission', 'tier'], name='core_gradec_submiss_574120_idx'),
+            models.Index(fields=['changed_by', 'changed_at'], name='core_gradec_changed_d22b0c_idx'),
         ]
 
     def __str__(self):
         return f"Grade change on {self.submission} by {self.changed_by} ({self.tier})"
+
+
+class AssessmentWritingSession(models.Model):
+    student = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    assessment = models.ForeignKey(Assessment, on_delete=models.CASCADE)
+    answers = models.JSONField(default=dict)
+    revision = models.PositiveIntegerField(default=0)
+    started_at = models.DateTimeField(auto_now_add=True)
+    last_saved_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['student', 'assessment'], name='unique_writing_session')]
+
+
+class AssessmentWritingIncident(models.Model):
+    session = models.ForeignKey(AssessmentWritingSession, on_delete=models.CASCADE, related_name='incidents')
+    kind = models.CharField(max_length=40)
+    created_at = models.DateTimeField(auto_now_add=True)
+    reviewed_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+
+
+class ActivitySession(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
+    username = models.CharField(max_length=254)
+    started_at = models.DateTimeField(auto_now_add=True)
+    last_seen = models.DateTimeField(auto_now_add=True)
+    ended_at = models.DateTimeField(null=True, blank=True)
+    expires_at = models.DateTimeField()
+
+    @property
+    def duration(self):
+        end = self.ended_at or min(self.last_seen, self.expires_at)
+        return str(end - self.started_at).split('.')[0]
+
+    @property
+    def state(self):
+        from django.utils import timezone
+        if self.ended_at:
+            return 'Logged out'
+        return 'Expired' if self.expires_at <= timezone.now() else 'Open session'
+
+
+class ActivityEvent(models.Model):
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
+    username = models.CharField(max_length=254, blank=True)
+    kind = models.CharField(max_length=30, db_index=True)
+    path = models.CharField(max_length=500, blank=True)
+    action = models.CharField(max_length=120, blank=True)
+    method = models.CharField(max_length=10, blank=True)
+    status = models.PositiveSmallIntegerField(null=True)
+    ip = models.CharField(max_length=45, blank=True)
+    session = models.ForeignKey(ActivitySession, on_delete=models.SET_NULL, null=True)
+
+    class Meta:
+        ordering = ['-created_at', '-pk']

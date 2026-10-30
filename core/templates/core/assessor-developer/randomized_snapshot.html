@@ -423,26 +423,22 @@
           <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal"
             data-bs-target="#snapshotModal">View Saved Randomized Papers</button>
           {% if can_edit_snapshot %}
-          <form method="post" class="d-inline">
+          <form method="post" id="paper-cleanup-form">
             {% csrf_token %}
-            <input type="hidden" name="action" value="strip_unbold">
-            <button type="submit" class="btn btn-outline-danger btn-sm">
-              Clear Non-Bold Text
+            <input type="hidden" name="action" value="clean_student_paper">
+            <button type="submit" class="btn btn-outline-primary btn-sm" id="paper-cleanup-button">
+              <i class="fas fa-broom me-1" aria-hidden="true"></i>Clean Student Paper
             </button>
+            <small class="text-muted d-block mt-1">Clears non-bold text, removes red text and deletes red-tagged answers.</small>
           </form>
-          <form method="post" class="d-inline">
+          <form method="post" class="mt-2">
             {% csrf_token %}
-            <input type="hidden" name="action" value="strip_red_text">
-            <button type="submit" class="btn btn-outline-danger btn-sm">
-              Remove Red Text
-            </button>
-          </form>
-          <form method="post" class="d-inline">
-            {% csrf_token %}
-            <input type="hidden" name="action" value="delete_answers">
-            <button type="submit" class="btn btn-outline-primary btn-sm">
-              Delete Answers
-            </button>
+            <input type="hidden" name="action" value="save_duration">
+            <label for="duration-hours" class="form-label">Student paper time (hours)</label>
+            <div class="input-group input-group-sm">
+              <input id="duration-hours" name="duration_hours" type="number" min="0.25" max="24" step="0.25" required class="form-control" value="{{ paper.structure_json.duration_hours|default:3 }}">
+              <button type="submit" class="btn btn-outline-primary">Save time</button>
+            </div>
           </form>
           {% endif %}
           <small class="text-muted text-end">Randomized Eisa Tool are reconstructions generated from captured content
@@ -542,6 +538,18 @@
         {# Structure overview hidden per request #}
       </div>
 
+      <div class="memo-section mt-4">
+        <h5>Assessor Developer Report</h5>
+        {% if assessment.assessor_report %}<p>Report uploaded. <a href="{% url 'workflow_report_download' assessment.id 'assessor' %}">Download report</a></p>{% endif %}
+        {% if can_edit_snapshot %}
+        <form method="post" enctype="multipart/form-data" class="memo-upload-form">
+          {% csrf_token %}<input type="hidden" name="action" value="upload_assessor_report">
+          <input type="file" name="assessor_report" accept=".pdf,.doc,.docx" required class="form-control">
+          <button class="btn btn-success" type="submit">Upload assessor report</button>
+        </form>
+        {% endif %}
+        <p class="small">Both the memo and assessor report are required before forwarding.</p>
+      </div>
       <!-- NEW: Memo Upload Section -->
       <div class="memo-section {% if has_memo %}has-memo{% else %}requires-memo{% endif %} mt-4">
         <h5 class="mb-3">Moderator Memo</h5>
@@ -621,14 +629,14 @@
 
         <!-- UPDATED: Forward to Moderator Button with memo check -->
         {% if assessment.status != 'Submitted to Moderator' %}
-        {% if can_forward_to_moderator %}
+        {% if can_forward_to_moderator and assessment.assessor_report %}
         <button type="submit" name="action" value="forward_moderator" class="btn btn-sm btn-warning">Forward to
           Moderator</button>
         {% else %}
         <button type="button" class="btn btn-sm btn-warning" disabled title="{{ memo_requirement_message }}">
           Forward to Moderator
         </button>
-        <small class="text-muted align-self-center">Upload memo first</small>
+        <small class="text-muted align-self-center">Upload memo and assessor report first</small>
         {% endif %}
         {% else %}
         <span class="small text-muted align-self-center">Already forwarded to moderator.</span>
@@ -1270,6 +1278,37 @@
       });
     }
   </script>
+<div id="assessor-report-toast" role="alert" hidden style="position:fixed;top:20px;right:20px;background:#842029;color:white;padding:16px;z-index:12000;border-radius:8px">Please upload an assessor report as PDF or Word.</div>
+<script>document.querySelectorAll('input[name="assessor_report"]').forEach(input => {
+ const warn = () => {const toast=document.getElementById('assessor-report-toast'); toast.hidden=false; setTimeout(()=>toast.hidden=true,5000);};
+ input.addEventListener('invalid',warn);
+ input.form.addEventListener('submit',event=>{if(input.files.length && !/\.(pdf|doc|docx)$/i.test(input.files[0].name)){event.preventDefault();warn();}});
+});</script><div id="paper-cleanup-loading" role="status" aria-live="polite" aria-label="Cleaning student paper" hidden style="position:fixed;inset:0;background:rgba(36,15,47,.75);z-index:10000;align-items:center;justify-content:center;">
+  <div style="background:white;border-radius:16px;padding:36px;text-align:center;color:#580658;max-width:440px;margin:20px;">
+    <div class="spinner-border mb-3" aria-hidden="true"></div>
+    <h4>Cleaning student paper</h4><p class="mb-0">Applying all three cleanup steps. Please keep this page open.</p>
+  </div>
+</div>
+<script>
+(() => {
+ const form = document.getElementById('paper-cleanup-form');
+ if (!form) return;
+ let submitting = false;
+ form.addEventListener('submit', event => {
+   if (submitting) { event.preventDefault(); return; }
+   submitting = true;
+   document.getElementById('paper-cleanup-button').disabled = true;
+   document.getElementById('paper-cleanup-loading').hidden = false;
+   document.getElementById('paper-cleanup-loading').style.display = 'flex';
+ });
+ window.addEventListener('pageshow', () => {
+   submitting = false;
+   document.getElementById('paper-cleanup-button').disabled = false;
+   const overlay = document.getElementById('paper-cleanup-loading');
+   overlay.hidden = true; overlay.style.display = 'none';
+ });
+})();
+</script>
 </body>
 
 </html>

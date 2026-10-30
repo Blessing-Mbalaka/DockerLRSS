@@ -5,6 +5,9 @@ from collections import defaultdict
 from typing import Dict, List, Tuple
 
 from django.db.models import Count
+from django.db import transaction
+from core.models import QuestionUse
+from core.question_usage import normalize_set
 
 from core.models import ExtractorPaper, ExtractorUserBox, ExtractorTestPaper, ExtractorTestItem
 
@@ -42,13 +45,14 @@ def bank_counts(module_name: str) -> Dict[str, int]:
     return {row["question_number"] or "": row["n"] for row in qs}
 
 
-def pick_random_for_qnums(module_name: str, qnums: List[str]) -> List[ExtractorUserBox]:
+def pick_random_for_qnums(module_name: str, qnums: List[str], set_number='1') -> List[ExtractorUserBox]:
     """For each question_number, pick one random ExtractorUserBox from that module.
 
     If none available for a qnum, skip it.
     """
     boxes_by_q: Dict[str, List[ExtractorUserBox]] = defaultdict(list)
     qs = ExtractorUserBox.objects.filter(paper__module_name=module_name, qtype="question", question_number__in=qnums)
+    qs = qs.exclude(set_uses__set_number=normalize_set(set_number))
     for bx in qs:
         boxes_by_q[bx.question_number].append(bx)
     picked: List[ExtractorUserBox] = []
@@ -60,18 +64,21 @@ def pick_random_for_qnums(module_name: str, qnums: List[str]) -> List[ExtractorU
     return picked
 
 
-def build_test_from_boxes(module_name: str, title: str, boxes: List[ExtractorUserBox]) -> ExtractorTestPaper:
+@transaction.atomic
+def build_test_from_boxes(module_name: str, title: str, boxes, set_number='1'):
+    set_number = normalize_set(set_number)
     test = ExtractorTestPaper.objects.create(module_name=module_name, title=title)
+    seen = set()
     for idx, bx in enumerate(boxes, start=1):
-        ExtractorTestItem.objects.create(
-            test=test,
-            order_index=idx,
-            question_number=bx.question_number,
-            marks=bx.marks,
-            qtype=bx.qtype,
-            content_type=bx.content_type,
-            content=bx.content,
-        )
+        if bx.pk in seen:
+            raise ValueError('A question cannot appear twice in one test.')
+        seen.add(bx.pk)
+        if bx.qtype in {'question', 'question_part'}:
+            _, created = QuestionUse.objects.get_or_create(box=bx, set_number=set_number)
+            if not created:
+                raise ValueError(f'Question {bx.question_number} was already used in set {set_number}.')
+        ExtractorTestItem.objects.create(test=test, order_index=idx, question_number=bx.question_number,
+            marks=bx.marks, qtype=bx.qtype, content_type=bx.content_type, content=bx.content)
     return test
 
 

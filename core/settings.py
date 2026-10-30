@@ -245,6 +245,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'core.activity_audit.ActivityMiddleware',
     'core.error_views.BrandedErrorMiddleware',
 ]
 
@@ -369,3 +370,6 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 #P36
 #p36
+
+# Optional explicit path; otherwise the converter is discovered on PATH.
+LIBREOFFICE_BINARY = os.environ.get("LIBREOFFICE_BINARY", "")

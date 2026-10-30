@@ -11,3 +11,7 @@ var/
 .env
 .env.local
 var/
+
+# Generated local previews and collected static assets
+outputs/
+staticfiles/

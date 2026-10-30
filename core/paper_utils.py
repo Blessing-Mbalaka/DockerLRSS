@@ -249,11 +249,19 @@ def collect_randomization_pool(module_name: str | None, module_number: str | Non
     pool_qs = pool_qs.filter(paper__paper_letter__iexact=module_letter)
     print(f"[DEBUG] After paper_letter filter: {pool_qs.count()}")
 
+    from .question_usage import active_set, active_paper
+    from .models import QuestionUse
+    set_number = active_set.get()
+    required_numbers = set(pool_qs.filter(qtype__in=['question', 'question_part']).values_list('question_number', flat=True))
+    used_ids = set()
+    if set_number:
+        used_ids = set(QuestionUse.objects.filter(set_number=set_number).exclude(paper_id=active_paper.get()).values_list('box_id', flat=True))
+        pool_qs = pool_qs.exclude(pk__in=used_ids)
     pool_list = list(pool_qs)
     print(f"[DEBUG] Final pool_list length: {len(pool_list)}")
 
     if base_extractor is not None:
-        base_boxes = list(base_extractor.user_boxes.all())
+        base_boxes = list(base_extractor.user_boxes.exclude(pk__in=used_ids))
         base_letter = (getattr(base_extractor, 'paper_letter', '') or '').strip()
         base_letter_norm = ''.join(ch for ch in base_letter if ch.isalpha()) or base_letter
         print(f"[DEBUG] base_extractor paper_letter='{base_letter}', normalized='{base_letter_norm}'")
@@ -265,6 +273,12 @@ def collect_randomization_pool(module_name: str | None, module_number: str | Non
                     pool_list.append(box)
                     added += 1
             print(f"[DEBUG] Added {added} boxes from base_extractor")
+
+    if set_number:
+        available_numbers = {box.question_number for box in pool_list if box.qtype in {'question', 'question_part'}}
+        exhausted = sorted(required_numbers - available_numbers)
+        if exhausted:
+            raise RandomizationPoolError(f"Set {set_number} has no unused questions for: {', '.join(exhausted)}. Capture alternatives or choose another set number.")
 
     pool_by_number: Dict[Tuple[str, str], List[ExtractorUserBox]] = defaultdict(list)
     pool_by_parent: Dict[Tuple[str, str], List[ExtractorUserBox]] = defaultdict(list)
@@ -348,6 +362,10 @@ def get_pool_summary(original_paper: Paper | None, module_name: str | None, modu
         'coverage': coverage,
     }
 
+from .question_usage import reserve_questions
+
+
+@reserve_questions
 def build_randomized_structure_from_pool(
     original_paper: Paper,
     target_paper: Paper,
@@ -603,6 +621,7 @@ def build_randomized_structure_from_pool(
     }
 
 
+@reserve_questions
 def build_randomized_from_pool_only(
     target_paper: Paper,
     module_name: str,

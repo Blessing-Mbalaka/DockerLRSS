@@ -1,3 +1,4 @@
+from core.author_permissions import assessor_author_required
 import json
 import csv
 import logging
@@ -128,6 +129,7 @@ from .paper_utils import (
     build_randomized_from_pool_only,
     calculate_pool_gaps,
 )
+from .question_usage import randomization_response
 from . import qualification_registry
 from .randomization_config import (
     allowed_letters,
@@ -174,6 +176,8 @@ def redirect_user_by_role(user):
         return redirect("etqa_dashboard")
     elif role == "qdd":
         return redirect("qdd_developer_dashboard")
+    elif role == "it":
+        return redirect("it_monitor")
     elif role == "learner":
         return redirect("student_dashboard")
     elif role == "assessment_center":
@@ -365,6 +369,7 @@ def handle_user_creation(request):
             last_name=last_name,
             role=role,
             student_number=student_number,
+            identity_number=request.POST.get("identity_number", "").strip()[:30],
             qualification=qualification,
             is_active=True,
             is_staff=(role != "learner"),
@@ -1025,6 +1030,10 @@ def admin_dashboard(request):
         if action == "etqa":
             status = "Submitted to ETQA"
         elif action == "moderator":
+            report = request.FILES.get("assessor_report")
+            if not report or not report.name.lower().endswith(('.doc', '.docx', '.pdf')):
+                messages.error(request, "Upload an assessor report before forwarding to the moderator.")
+                return redirect("assessor_developer")
             status = "Submitted to Moderator"
         else:
             status = "Pending"
@@ -1035,6 +1044,7 @@ def admin_dashboard(request):
             qualification=qualification_obj,
             paper=paper_number,
             file=file_obj,  # question paper file
+            assessor_report=request.FILES.get("assessor_report"),
             memo=memo_file_obj,  # CORRECTED: Use 'memo' field for memo file
             created_by=request.user,
             paper_link=paper_obj,
@@ -1256,6 +1266,7 @@ def rebuild_extractor_from_bank(assessment, force=False):
     return extractor
 
 
+@assessor_author_required
 @login_required
 def assessor_reports(request):
     data = [
@@ -1283,6 +1294,7 @@ def assessor_reports(request):
     )
 
 
+@assessor_author_required
 def assessment_archive(request):
     qs = Assessment.objects.all()
 
@@ -1339,6 +1351,7 @@ def assessment_archive(request):
     )
 
 
+@assessor_author_required
 def assessor_dashboard(request):
     # Legacy dashboard retired; the URL name is kept so existing links still resolve.
     return redirect("assessor_developer")
@@ -1406,6 +1419,7 @@ def view_assessment(request, eisa_id):
     )
 
 
+@assessor_author_required
 def assessor_developer(request):
     """Dashboard that manages assessor developer paper flow using the advanced extractor."""
     base_queryset = Assessment.objects.select_related(
@@ -1479,6 +1493,7 @@ def _pool_user_is_privileged(user):
     )
 
 
+@assessor_author_required
 @login_required
 def assessor_pool_data(request):
     module_filter = (request.GET.get("module") or "").strip()
@@ -1648,6 +1663,8 @@ def assessor_pool_data(request):
                 "parent_number": (box.parent_number or "").strip(),
                 "qtype": box.qtype or "",
                 "marks": box.marks or "",
+                "usage_count": box.set_uses.count(),
+                "used_sets": list(box.set_uses.values_list("set_number", flat=True)),
                 "content_preview": summarize_content(box.content),
                 "content_text": content_text,
                 "content_editable": content_editable,
@@ -1748,6 +1765,7 @@ def _pool_block_response(box, *, status=200):
     )
 
 
+@assessor_author_required
 @login_required
 @require_POST
 def assessor_pool_block_create(request):
@@ -1781,6 +1799,7 @@ def assessor_pool_block_create(request):
     return _pool_block_response(box, status=201)
 
 
+@assessor_author_required
 @login_required
 @require_POST
 def assessor_pool_block_update(request, box_id):
@@ -1806,6 +1825,7 @@ def assessor_pool_block_update(request, box_id):
     return _pool_block_response(box)
 
 
+@assessor_author_required
 @login_required
 @require_POST
 def assessor_pool_block_delete(request, box_id):
@@ -1815,18 +1835,28 @@ def assessor_pool_block_delete(request, box_id):
     )
     if not _pool_user_can_manage_paper(request.user, box.paper):
         return JsonResponse({"ok": False, "message": "You cannot edit this pool."}, status=403)
+    if box.set_uses.exists():
+        return JsonResponse({"ok": False, "message": "This question has been used in a set and cannot be deleted."}, status=400)
     box.delete()
     return JsonResponse({"ok": True, "deleted": box_id})
 
 
+@assessor_author_required
 @login_required
 @require_POST
+@randomization_response
+@transaction.atomic
 def assessor_pool_randomize(request):
     module_name = (request.POST.get("module") or "").strip()
     letter_raw = (request.POST.get("letter") or "").strip()
     module_letter = (
         "".join(ch for ch in letter_raw if ch.isalpha()) or letter_raw
     ).upper()
+    from .question_usage import normalize_set
+    try:
+        set_number = normalize_set(request.POST.get("set_number", "1"))
+    except ValueError as exc:
+        return JsonResponse({"ok": False, "message": str(exc)}, status=400)
     requested_mode = (request.POST.get("mode") or "pool").strip().lower()
     if requested_mode not in {"pool", "base"}:
         requested_mode = "pool"
@@ -1921,6 +1951,7 @@ def assessor_pool_randomize(request):
 
     new_paper = Paper.objects.create(
         name=new_paper_name,
+        structure_json={"randomization": {"set_number": set_number}},
         qualification=qualification,
         created_by=created_by,
         is_randomized=True,
@@ -1963,6 +1994,7 @@ def assessor_pool_randomize(request):
 
     meta_payload = dict(new_paper.structure_json or {})
     meta_payload["randomization"] = {
+        "set_number": set_number,
         "module_name": module_name,
         "module_number": module_letter,
         "status": rand_status_value,
@@ -2008,7 +2040,7 @@ def assessor_pool_randomize(request):
         eisa_id=eisa_id,
         qualification=qualification,
         paper=new_paper.name,
-        module_number=module_letter,
+        module_number=f"{set_number}{module_letter}",
         module_name=module_name,
         saqa_id=(
             qualification.saqa_id
@@ -2075,6 +2107,8 @@ def assessor_pool_randomize(request):
 
 @login_required
 def download_randomized_pdf(request, assessment_id):
+    if request.user.role == "assessment_center":
+        return redirect("centre_released_papers")
     assessment = get_object_or_404(
         Assessment.objects.select_related("paper_link", "qualification"),
         id=assessment_id,
@@ -2137,13 +2171,15 @@ def download_randomized_pdf(request, assessment_id):
     if req_format == "docx":
         # Build a Word document from the node_tree
         doc = Document()
-        heading_label = f"{assessment.eisa_id} - {paper.name}"
+        from docx.shared import Mm, Pt
+        from docx.enum.text import WD_ALIGN_PARAGRAPH
+        from docx.image.image import Image as DocxImage
+        section = doc.sections[0]
+        section.page_width, section.page_height = Mm(210), Mm(297)
+        section.top_margin = section.bottom_margin = Mm(15)
+        section.left_margin = section.right_margin = Mm(15)
         if memo_mode:
-            heading_label = f"{heading_label} | Answer Key"
-        doc.add_heading(heading_label, level=1)
-        if getattr(assessment, "qualification", None):
-            doc.add_paragraph(f"Qualification: {assessment.qualification.name}")
-        doc.add_paragraph(f"Generated: {timezone.now().isoformat()}")
+            doc.add_heading("Answer Key", level=1)
 
         from django.conf import settings as djsettings
 
@@ -2153,13 +2189,17 @@ def download_randomized_pdf(request, assessment_id):
             node_id = str(node.get("id") or "")
 
             if ntype == "cover_page":
-                doc.add_heading("Cover Page", level=level)
+                pass  # The supplied cover artwork is the heading; add no generated label.
             elif ntype == "instruction":
                 doc.add_heading("Instruction", level=level)
             elif ntype == "question":
                 doc.add_heading(f"Question {number}", level=level)
 
+            cover_image_pending = False
             for item in node.get("content") or []:
+                if cover_image_pending:
+                    doc.add_paragraph().paragraph_format.page_break_before = True
+                    cover_image_pending = False
                 try:
                     if isinstance(item, dict):
                         itype = (item.get("type") or "").lower()
@@ -2172,21 +2212,24 @@ def download_randomized_pdf(request, assessment_id):
                             import requests
 
                             def _save_and_add(img_path_or_bytes, is_bytes=False):
-                                # img_path_or_bytes: filesystem path or bytes
                                 try:
-                                    if is_bytes:
-                                        tf = tempfile.NamedTemporaryFile(
-                                            delete=False, suffix=".png"
-                                        )
-                                        tf.write(img_path_or_bytes)
-                                        tf.flush()
-                                        tf.close()
-                                        doc.add_picture(tf.name, width=Inches(5))
-                                        os.unlink(tf.name)
+                                    source = BytesIO(img_path_or_bytes) if is_bytes else img_path_or_bytes
+                                    if ntype == "cover_page":
+                                        image = DocxImage.from_file(source)
+                                        if is_bytes:
+                                            source.seek(0)
+                                        max_width = section.page_width - section.left_margin - section.right_margin
+                                        max_height = section.page_height - section.top_margin - section.bottom_margin - Mm(4)
+                                        scale = min(max_width / image.width, max_height / image.height)
+                                        paragraph = doc.add_paragraph()
+                                        paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                                        fmt = paragraph.paragraph_format
+                                        fmt.space_before = fmt.space_after = Pt(0)
+                                        fmt.line_spacing = 1
+                                        fmt.keep_with_next = False
+                                        paragraph.add_run().add_picture(source, width=int(image.width * scale), height=int(image.height * scale))
                                     else:
-                                        doc.add_picture(
-                                            img_path_or_bytes, width=Inches(5)
-                                        )
+                                        doc.add_picture(source, width=Inches(5))
                                     return True
                                 except Exception:
                                     return False
@@ -2326,6 +2369,9 @@ def download_randomized_pdf(request, assessment_id):
                                     except Exception:
                                         continue
 
+                            if embedded and ntype == "cover_page":
+                                cover_image_pending = True
+
                             if not embedded:
                                 # fallback: insert a reference to the image
                                 ref = (
@@ -2429,7 +2475,11 @@ def download_randomized_pdf(request, assessment_id):
                     doc.add_paragraph(f"Notes: {memo_notes}")
                 doc.add_paragraph("")
 
-        for node in node_tree:
+        for index, node in enumerate(node_tree):
+            if index and (node_tree[index - 1].get("node_type") or "").lower() == "cover_page":
+                # Start the paper body separately without adding a trailing blank page.
+                if doc.paragraphs:
+                    doc.add_paragraph().paragraph_format.page_break_before = True
             _render_node_to_doc(node, level=2)
 
         out = BytesIO()
@@ -2483,6 +2533,8 @@ def download_randomized_pdf(request, assessment_id):
 
 @login_required
 def assessor_randomized_snapshot(request, assessment_id):
+    if request.user.role == "assessment_center":
+        return redirect("centre_released_papers")
     randomized_qs = Assessment.objects.select_related(
         "paper_link", "qualification", "created_by", "extractor_paper"
     )
@@ -2694,6 +2746,34 @@ def assessor_randomized_snapshot(request, assessment_id):
                                 return True
             return False
 
+        if action == "save_duration":
+            from decimal import Decimal, InvalidOperation
+            try:
+                hours = Decimal(request.POST.get("duration_hours", ""))
+                if not hours.is_finite() or hours < Decimal("0.25") or hours > 24 or hours % Decimal("0.25"):
+                    raise ValueError()
+                if not paper or (paper.structure_json and not isinstance(paper.structure_json, dict)):
+                    raise ValueError()
+            except (InvalidOperation, ValueError):
+                messages.error(request, "Choose a duration from 0.25 to 24 hours, in quarter-hour steps.")
+            else:
+                metadata = dict(paper.structure_json or {})
+                metadata["duration_hours"] = float(hours)
+                paper.structure_json = metadata
+                paper.save(update_fields=["structure_json"])
+                messages.success(request, "Student paper duration saved.")
+            return redirect("assessor_randomized_snapshot", assessment_id=assessment.id)
+
+        if action == "upload_assessor_report":
+            report = request.FILES.get("assessor_report")
+            if not report or os.path.splitext(report.name)[1].lower() not in {".pdf", ".doc", ".docx"}:
+                messages.error(request, "Please upload an assessor report as PDF or Word.")
+            else:
+                assessment.assessor_report = report
+                assessment.save(update_fields=["assessor_report"])
+                messages.success(request, "Assessor report uploaded.")
+            return redirect("assessor_randomized_snapshot", assessment_id=assessment.id)
+
         # NEW: Handle memo upload
         if action == "upload_memo":
             memo_file = request.FILES.get('memo_file')
@@ -2716,6 +2796,41 @@ def assessor_randomized_snapshot(request, assessment_id):
                     can_forward_to_moderator = True
             else:
                 messages.error(request, "Please select a memo file to upload")
+            return redirect("assessor_randomized_snapshot", assessment_id=assessment.id)
+
+        if action == "clean_student_paper":
+            if not paper:
+                messages.error(request, "No paper attached to this assessment.")
+                return redirect("assessor_randomized_snapshot", assessment_id=assessment.id)
+            from django.db import transaction
+            target_colors = get_red_color_range()
+            updated_nodes = 0
+            with transaction.atomic():
+                paper = Paper.objects.select_for_update().get(pk=paper.pk)
+                for node in paper.nodes.select_for_update().order_by("order_index"):
+                    original = node.content if isinstance(node.content, list) else []
+                    # Run the three existing cleanup operations in their displayed order.
+                    cleaned = strip_non_bold_from_blocks(original)
+                    cleaned = strip_color_from_blocks(cleaned, target_colors)
+                    cleaned = strip_color_from_blocks(cleaned, target_colors)
+                    cleaned, _ = strip_color_from_blocks_html(cleaned, target_colors)
+                    if cleaned != original:
+                        node.content = cleaned
+                        fields = ["content"]
+                        if (node.node_type or "").lower() != "cover_page":
+                            node.text = summarize_text_from_blocks(cleaned)
+                            fields.append("text")
+                        node.save(update_fields=fields)
+                        updated_nodes += 1
+                manifest = paper.structure_json if isinstance(paper.structure_json, dict) else {}
+                if isinstance(manifest.get("nodes"), list):
+                    cleaned = strip_non_bold_from_manifest_nodes(manifest["nodes"])
+                    cleaned = strip_color_from_manifest_nodes(cleaned, target_colors)
+                    cleaned = strip_color_from_manifest_nodes(cleaned, target_colors)
+                    manifest["nodes"] = strip_color_from_manifest_nodes_html(cleaned, target_colors)
+                    paper.structure_json = manifest
+                    paper.save(update_fields=["structure_json"])
+            messages.success(request, f"Paper cleanup complete. Updated {updated_nodes} block(s).")
             return redirect("assessor_randomized_snapshot", assessment_id=assessment.id)
 
         if action == "strip_red_text":
@@ -2982,6 +3097,9 @@ def assessor_randomized_snapshot(request, assessment_id):
         
         # UPDATED: Forward to moderator with memo check
         if action == "forward_moderator":
+            if not assessment.assessor_report:
+                messages.error(request, "Upload the assessor report before forwarding to the moderator.")
+                return redirect("assessor_randomized_snapshot", assessment_id=assessment.id)
             # Check memo requirement for randomized papers
             if assessment.paper_type == 'randomized' and not assessment.memo_file:
                 messages.error(
@@ -3787,6 +3905,7 @@ def moderator_statistics(request):
     return render(request, "core/moderator/statistics.html", context)
 
 
+@assessor_author_required
 @login_required
 def assessor_developer_paper(request, paper_id):
     extractor_paper = get_object_or_404(
@@ -3833,6 +3952,7 @@ def _record_workflow_feedback(assessment, recipient_label, message, status=Feedb
     return feedback
 
 
+@assessor_author_required
 @require_http_methods(["GET", "POST"])
 def upload_assessment(request):
     """Enhanced upload using robust extractor"""
@@ -3862,6 +3982,10 @@ def upload_assessment(request):
         ).strip()
         file = request.FILES.get("file_input")
         memo = request.FILES.get("memo_file")
+        assessor_report = request.FILES.get("assessor_report")
+        if action == "assessor_dev" and (not assessor_report or not assessor_report.name.lower().endswith(('.doc', '.docx', '.pdf'))):
+            messages.error(request, "Upload an assessor report before forwarding to the moderator.")
+            return redirect("upload_assessment")
         comment = (request.POST.get("comment_box") or "").strip()
 
         if not paper_number or not module_number or not module_name or not memo:
@@ -3934,6 +4058,7 @@ def upload_assessment(request):
             saqa_id=saqa_id,
             file=file,
             memo=memo,
+            assessor_report=assessor_report,
             comment=comment,
             forward_to_moderator=(action == "assessor_dev"),
             created_by=request.user,
@@ -4607,6 +4732,8 @@ def etqa_assessment_view(request):
 #New view############################################################
 @login_required
 def download_memo(request, assessment_id):
+    if request.user.role == "assessment_center":
+        return redirect("centre_released_papers")
     """Download memo file for an assessment - UPDATED FOR RANDOMIZED PAPERS"""
     assessment = get_object_or_404(Assessment, id=assessment_id)
     
@@ -4859,6 +4986,8 @@ def review_saved_selector(request):
 
 @login_required
 def load_saved_paper_view(request, paper_pk):
+    if request.user.role == "assessment_center":
+        return redirect("centre_released_papers")
     """Preview a saved paper (full flow-by-flow reading view), with optional editor toggle."""
     try:
         paper = get_object_or_404(
@@ -5296,7 +5425,9 @@ def write_exam(request, assessment_id):
     if paper and isinstance(paper.structure_json, dict):
         random_meta = paper.structure_json.get("randomization", {}) or {}
 
+    from .learner_cover import cover_defaults
     context = {
+        "learner_cover": cover_defaults(request.user, assessment),
         "assessment": assessment,
         "paper": paper,
         "generated_qs": generated_qs,
@@ -5306,6 +5437,7 @@ def write_exam(request, assessment_id):
         "random_meta": random_meta,
         "question_nodes": question_nodes,
         "is_randomized": assessment.paper_type == "randomized",
+        "duration_seconds": int(float((paper.structure_json if paper and isinstance(paper.structure_json, dict) else {}).get("duration_hours", 3)) * 3600),
         "assessment_id": assessment_id,  # Add this for JavaScript
     }
     return render(request, "core/student/write_exam.html", context)
@@ -5605,9 +5737,12 @@ def submit_exam(request, assessment_id):
                 }
             )
 
+    from .learner_cover import read_cover, read_writing_notes
+    learner_cover = read_cover(request.POST, request.user, assessment)
+    writing_notes = read_writing_notes(request.POST)
     saved_new = len(node_answers)
 
-    if paper and (saved_new or saved_count_old):
+    if paper and (saved_new or saved_count_old or writing_notes):
         context = {
             "paper": paper,
             "assessment": assessment,
@@ -5618,6 +5753,8 @@ def submit_exam(request, assessment_id):
             "answers": answers_data,
             "submission_date": timezone.now(),
             "total_questions": len(node_answers),
+            "learner_cover": learner_cover,
+            "writing_notes": writing_notes,
         }
 
         exam_submission = ExamSubmission.objects.create(
@@ -5628,6 +5765,8 @@ def submit_exam(request, assessment_id):
             assessment=assessment,
             attempt_number=attempt_number,
             submitted_at=timezone.now(),
+            learner_cover=learner_cover,
+            writing_notes=writing_notes,
         )
 
         try:
@@ -6682,6 +6821,8 @@ def _build_student_submission_results(student):
 
     results = []
     for submission in submissions:
+        if not submission.results_are_released:
+            continue
         if submission.external_marks is not None:
             final_marks = submission.external_marks
             final_total = submission.external_total_marks

@@ -1,0 +1,42 @@
+{% load static %}
+<div class="sidebar">
+            <div class="graduate-icon">
+                <img src="{% static 'core/images/logo_simplebbbbbbbbbbbbbb.png' %}" alt="CHIETA Logo"
+                    style="width: 130px;">
+            </div>
+            <br><br>
+            <ul>
+                <li class="nav-item">
+                    <a href="{% url 'assessment_center' %}" class="nav-item">
+                        <i class="fa fa-home me-2"></i>Dashboard
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{% url 'create_student_by_assessment_center' %}" class="nav-item">
+                        <i class="fa fa-cogs me-2"></i>Student Management
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{% url 'upload_student_register' %}" class="nav-item">
+                        <i class="fa fa-upload me-2"></i>Upload Offline Student Register
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{% url 'upload_offline_exam' %}" class="nav-item">
+                        <i class="fa fa-upload me-2"></i>Upload Offline Exam
+                    </a>
+                </li>
+
+                <li class="nav-item">
+                    <a href="{% url 'centre_released_papers' %}" class="nav-item">
+                        <i class="fa fa-file-pdf me-2"></i>Released papers
+                    </a>
+                </li>
+
+                {% include 'core/assessment-center/_incident_nav.html' %}
+                <button class="gradient-button w-100 py-0">
+                    <a href="{% url 'logout' %}" class="fix"> Log Out</a>
+                </button>
+            </ul>
+            <img src="{% static 'core/images/rb_2149331949.png' %}" alt="" width="199px">
+        </div>

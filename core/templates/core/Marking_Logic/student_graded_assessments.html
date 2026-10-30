@@ -426,26 +426,7 @@
                                 </div>
                             {% endif %}
 
-                            <div class="links-row">
-                                <a class="action-link" href="{{ result.submission.pdf_file.url }}" target="_blank">
-                                    <i class="fas fa-file-pdf me-1"></i>Original Submission
-                                </a>
-                                {% if result.submission.marked_paper %}
-                                    <a class="action-link" href="{{ result.submission.marked_paper.url }}" target="_blank">
-                                        <i class="fas fa-pen-square me-1"></i>Marker Copy
-                                    </a>
-                                {% endif %}
-                                {% if result.submission.internal_marked_paper %}
-                                    <a class="action-link" href="{{ result.submission.internal_marked_paper.url }}" target="_blank">
-                                        <i class="fas fa-user-check me-1"></i>Internal Review
-                                    </a>
-                                {% endif %}
-                                {% if result.submission.external_marked_paper %}
-                                    <a class="action-link" href="{{ result.submission.external_marked_paper.url }}" target="_blank">
-                                        <i class="fas fa-user-shield me-1"></i>External Review
-                                    </a>
-                                {% endif %}
-                            </div>
+
                         </div>
                     {% endfor %}
                 {% else %}

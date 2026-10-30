@@ -1,4 +1,4 @@
-﻿{% load exam_extras %}
+{% load exam_extras %}
 
 <!DOCTYPE html>
 <html lang="en">
@@ -201,6 +201,34 @@
       padding:10px;
     }
 
+    /* Cover details fill the paper width with two balanced columns. */
+    #learner-cover table,
+    .cover-card table.learner-cover-table {
+      display:table;
+      width:100% !important;
+      table-layout:fixed;
+      border-collapse:collapse;
+      resize:none;
+      overflow:visible;
+    }
+    #learner-cover table th, #learner-cover table td,
+    .cover-card table.learner-cover-table th,
+    .cover-card table.learner-cover-table td {
+      width:50% !important;
+      min-width:0;
+      box-sizing:border-box;
+      vertical-align:middle;
+      overflow-wrap:anywhere;
+    }
+    #learner-cover input,
+    .learner-cover-table input {
+      display:block;
+      width:100% !important;
+      max-width:100%;
+      min-width:0;
+      box-sizing:border-box;
+    }
+
     .toolbar {
       display:flex;
       flex-wrap:wrap;
@@ -301,7 +329,7 @@
 <body>
   <!-- Warning Banner - Hidden by default -->
   <div class="warning-banner" id="warningBanner">
-    ⚠️ Warning: Navigating away from this page will automatically submit your exam!
+    ⚠️ Warning: Any suspicious browser activity will alert the assessment centre invigilators.
   </div>
 
   <!-- Submission Overlay -->
@@ -326,7 +354,7 @@
       </div>
       <div class="timer-pill">
         <span class="me-1"><i class="fas fa-clock"></i></span>
-        <span id="countdownClock">03:00:00</span>
+        <span id="countdownClock">--:--:--</span>
       </div>
     </div>
 
@@ -349,6 +377,7 @@
 
     <form id="exam-form" method="post" action="{% url 'submit_exam' assessment_id=assessment.id %}">
       {% csrf_token %}
+      {% include "core/student/learner_cover.html" %}
       <input type="hidden" name="attempt_number" value="{{ attempt_number }}">
 
       {% if node_sequence %}
@@ -465,7 +494,7 @@
 
  <script>
 // ==================== GLOBAL VARIABLES ====================
-let examForm = null;
+let examForm = document.getElementById('exam-form');
 let isSubmitting = false;
 let hasChanges = false;
 let forceSubmitted = false;
@@ -475,7 +504,7 @@ const overlayToggle = document.getElementById('toggleOverlay');
 const overlays = Array.from(document.querySelectorAll('.writing-overlay'));
 const autosaveStatus = document.getElementById('autosaveStatus');
 const countdownClock = document.getElementById('countdownClock');
-const assessmentKey = 'assessment_{{ assessment.id|default:"0" }}_draft';
+const assessmentKey = 'learner_{{ request.user.pk }}_assessment_{{ assessment.id|default:"0" }}_draft';
 const summaryToggle = document.getElementById('answerPanelToggle');
 const summaryPanel = document.getElementById('answerPanel');
 const summaryClose = document.getElementById('answerPanelClose');
@@ -538,7 +567,7 @@ function handleFormSubmit(e) {
 
     // Final sync and cleanup
     syncOverlaysToHidden();
-    clearAutosave();
+    // Retain recovery data until confirmed submission.
 
     // Show submission overlay
     if (submissionOverlay) {
@@ -588,7 +617,7 @@ window.history.pushState(null, null, window.location.href);
 window.addEventListener('popstate', function(event) {
     if (hasChanges && !isSubmitting && !forceSubmitted) {
         window.history.pushState(null, null, window.location.href);
-        submitExam();
+        reportIncident('navigation');
     }
 });
 
@@ -604,7 +633,7 @@ window.addEventListener('beforeunload', function(e) {
 // Handle page visibility change
 document.addEventListener('visibilitychange', function() {
     if (document.hidden && hasChanges && !isSubmitting && !forceSubmitted) {
-        submitExam();
+        reportIncident('tab_hidden');
     }
 });
 
@@ -613,14 +642,14 @@ document.addEventListener('keydown', function(e) {
     if ((e.ctrlKey && e.key === 'r') || e.key === 'F5') {
         if (hasChanges && !isSubmitting && !forceSubmitted) {
             e.preventDefault();
-            submitExam();
+            autosaveNow();
         }
     }
     
     if (e.ctrlKey && e.key === 'w') {
         if (hasChanges && !isSubmitting && !forceSubmitted) {
             e.preventDefault();
-            submitExam();
+            autosaveNow();
         }
     }
 });
@@ -942,6 +971,27 @@ if (outlinePanel && outlineContainer && outlinePayloadField) {
     }
 }
 
+(function populateCoverCells() {
+    const normalise = text => text.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const aliases = {'STUDENTNAMEANDSURNAME':['STUDENTNAMESURNAME'], 'IDENTITYNUMBER':['IDENTITYNUMBER'],
+        'SAQAID':['QAQAID','SAQAID'], 'DATEOFEISA':['DATEOFEISADDMMYYYY']};
+    document.querySelectorAll('#learner-cover tr').forEach(row => {
+        const input = row.querySelector('input'); if (!input) return;
+        const key = normalise(row.querySelector('label').textContent);
+        const accepted = [key, ...(aliases[key] || [])];
+        document.querySelectorAll('.pdf-content tr, .cover-card[data-node-id] tr').forEach(paperRow => {
+            const cells = paperRow.querySelectorAll('td,th'); if (cells.length < 2) return;
+            if (!accepted.includes(normalise(cells[0].textContent))) return;
+            paperRow.closest('table')?.classList.add('learner-cover-table');
+            const editor = input.cloneNode(); editor.removeAttribute('id'); editor.removeAttribute('name');
+            editor.setAttribute('aria-label', row.querySelector('label').textContent);
+            editor.addEventListener('input', () => {input.value = editor.value; hasChanges = true;});
+            input.addEventListener('input', () => {editor.value = input.value;});
+            cells[1].replaceChildren(editor);
+        });
+    });
+})();
+
 /* Auto-resize answer textareas */
 document.querySelectorAll('textarea[data-autosize="true"]').forEach((ta) => {
     const autoResize = () => {
@@ -952,6 +1002,21 @@ document.querySelectorAll('textarea[data-autosize="true"]').forEach((ta) => {
     autoResize();
 });
 
+overlays.forEach(overlay => {
+    overlay.addEventListener('click', event => {
+        if (overlay.dataset.active !== 'true' || event.target !== overlay) return;
+        const rect = overlay.getBoundingClientRect();
+        const note = document.createElement('div');
+        note.className = 'writing-block'; note.contentEditable = 'true';
+        note.style.left = `${Math.max(0, event.clientX - rect.left)}px`;
+        note.style.top = `${Math.max(0, event.clientY - rect.top)}px`;
+        note.style.minWidth = '120px'; note.style.minHeight = '32px';
+        note.setAttribute('aria-label', 'Writing layer note');
+        note.addEventListener('input', () => { hasChanges = true; autosaveNow(); });
+        overlay.appendChild(note); note.focus();
+    });
+});
+
 /* Serialize overlay contents into hidden inputs */
 function syncOverlaysToHidden() {
     if (!overlays) return;
@@ -960,7 +1025,9 @@ function syncOverlaysToHidden() {
         if (!inputName) return;
         const hiddenField = document.querySelector(`input[name="${inputName}"]`);
         if (!hiddenField) return;
-        hiddenField.value = overlay.innerHTML;
+        hiddenField.value = JSON.stringify(Array.from(overlay.querySelectorAll('.writing-block')).map(note => ({
+            text: note.innerText, left: note.style.left, top: note.style.top
+        })));
     });
 }
 
@@ -986,6 +1053,28 @@ if (overlayToggle) {
     overlayToggle.checked = false;
 }
 
+const sessionUrl = "{% url 'writing_session' assessment.id %}";
+let sessionStartedAt = null;
+let revision = null, saving = false, restoring = true, conflict = false;
+const csrfToken = examForm.querySelector('[name=csrfmiddlewaretoken]').value;
+async function reportIncident(incident) {
+    try { await fetch(sessionUrl, {method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':csrfToken}, body:JSON.stringify({incident}), keepalive:true}); } catch (_) {}
+}
+async function saveDatabase(payload) {
+    if (revision === null || saving || conflict || restoring) return;
+    saving = true;
+    try {
+        const response = await fetch(sessionUrl, {method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':csrfToken}, body:JSON.stringify({answers:payload, revision})});
+        if (response.status === 409) { conflict = true; throw new Error('Attempt changed or submitted. Reload before continuing.'); }
+        if (!response.ok) throw new Error('Database unavailable. Answers retained on this device.');
+        const data = await response.json(); revision = data.revision; sessionStartedAt = data.started_at;
+        if (localStorage.getItem(assessmentKey) === JSON.stringify(payload)) localStorage.removeItem(assessmentKey);
+        setAutosaveStatus('idle', 'Saved to database');
+    } catch (error) { setAutosaveStatus('error', error.message); }
+    finally { saving = false; }
+}
+window.addEventListener('offline', () => setAutosaveStatus('error', 'Offline. Keep this page open; answers are saved on this device.'));
+window.addEventListener('online', () => { reportIncident('reconnected'); autosaveNow(); });
 /* Autosave to localStorage */
 function getDraftPayload() {
     syncOverlaysToHidden();
@@ -1005,10 +1094,26 @@ function applyAutosaveState(state) {
     if (!state || !examForm) return;
     Object.entries(state).forEach(([key, value]) => {
         const input = examForm.elements.namedItem(key);
-        if (!input) return;
+        if (!input || input.readOnly) return;
         if (input instanceof HTMLTextAreaElement || input instanceof HTMLInputElement) {
             input.value = value;
+            input.dispatchEvent(new Event('input'));
         }
+    });
+    overlays.forEach(overlay => {
+        const hidden = examForm.elements.namedItem(overlay.dataset.overlay);
+        if (!hidden || !hidden.value) return;
+        try {
+            const notes = JSON.parse(hidden.value);
+            overlay.replaceChildren();
+            if (Array.isArray(notes)) notes.forEach(value => {
+                const note = document.createElement('div'); note.className = 'writing-block';
+                note.contentEditable = 'true'; note.textContent = String(value.text || '');
+                note.style.left = /^\d+(\.\d+)?px$/.test(value.left) ? value.left : '0px';
+                note.style.top = /^\d+(\.\d+)?px$/.test(value.top) ? value.top : '0px';
+                overlay.appendChild(note);
+            });
+        } catch (_) {}
     });
     if (typeof hydrateOutlineFromField === 'function') {
         hydrateOutlineFromField();
@@ -1023,13 +1128,13 @@ function setAutosaveStatus(status, message) {
 }
 
 function autosaveNow() {
-    if (isSubmitting || forceSubmitted) return;
+    if (isSubmitting || forceSubmitted || restoring) return;
     try {
         const payload = getDraftPayload();
         localStorage.setItem(assessmentKey, JSON.stringify(payload));
         const stamp = new Date().toLocaleTimeString();
         setAutosaveStatus('saving', `Saved locally at ${stamp}`);
-        setTimeout(() => setAutosaveStatus('idle', 'Autosave ready'), 2500);
+        saveDatabase(payload);
     } catch (err) {
         console.error(err);
         setAutosaveStatus('error', 'Autosave failed (check storage quota)');
@@ -1044,27 +1149,29 @@ function clearAutosave() {
     }
 }
 
-(function restoreDraft() {
+(async function restoreDraft() {
+    let local;
     try {
-        const draft = localStorage.getItem(assessmentKey);
-        if (draft) {
-            applyAutosaveState(JSON.parse(draft));
-            setAutosaveStatus('saving', 'Draft restored from device');
-            setTimeout(() => setAutosaveStatus('idle', 'Autosave ready'), 3000);
-        }
-    } catch (err) {
-        console.warn('Unable to restore draft', err);
-    }
+        local = localStorage.getItem(assessmentKey);
+        const response = await fetch(sessionUrl);
+        if (!response.ok) throw new Error();
+        const data = await response.json(); revision = data.revision; sessionStartedAt = data.started_at;
+        applyAutosaveState(local ? JSON.parse(local) : data.answers);
+        setAutosaveStatus('idle', 'Draft restored');
+    } catch (_) {
+        if (local) applyAutosaveState(JSON.parse(local));
+        setAutosaveStatus('error', 'Device recovery active. Reconnect and reload to sync.');
+    } finally { restoring = false; }
 })();
-
-document.querySelectorAll('textarea[data-autosize="true"]').forEach((ta) => ta.addEventListener('input', autosaveNow));
-setInterval(autosaveNow, 60000);
+let saveDelay;
+examForm.addEventListener('input', () => { clearTimeout(saveDelay); saveDelay = setTimeout(autosaveNow, 800); });
+setInterval(autosaveNow, 10000);
 
 /* Countdown clock */
-const threeHoursInSeconds = 3 * 60 * 60;
-let remaining = threeHoursInSeconds;
+const paperDurationSeconds = {{ duration_seconds }};
+let remaining = paperDurationSeconds;
 setInterval(() => {
-    remaining = Math.max(remaining - 1, 0);
+    remaining = sessionStartedAt ? Math.max(paperDurationSeconds - Math.floor((Date.now() - Date.parse(sessionStartedAt)) / 1000), 0) : Math.max(remaining - 1, 0);
     const hrs = String(Math.floor(remaining / 3600)).padStart(2, '0');
     const mins = String(Math.floor((remaining % 3600) / 60)).padStart(2, '0');
     const secs = String(remaining % 60).padStart(2, '0');

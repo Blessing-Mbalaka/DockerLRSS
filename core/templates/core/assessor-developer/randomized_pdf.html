@@ -23,9 +23,16 @@
     .pdf-node__children { margin-left: 1.5rem; border-left: 2px solid rgba(58, 6, 58, 0.15); padding-left: 1rem; margin-top: 0.5rem; }
     .pdf-node__memo { margin-top: 0.75rem; padding: 0.5rem 0.75rem; background: #ecfdf5; border-left: 3px solid #0f766e; font-size: 0.9rem; }
     .pdf-node__memo strong { display: block; margin-bottom: 0.25rem; color: #065f46; }
+    @page { size: A4; margin: 15mm; }
+    .pdf-node--cover_page { margin: 0; page-break-after: always; }
+    .pdf-node--cover_page .pdf-node__header { display: none; }
+    .pdf-node--cover_page .pdf-node__content { margin: 0; padding: 0; }
+    .pdf-node--cover_page img { display: block; width: auto; height: auto; max-width: 180mm; max-height: 263mm; margin: 0 auto; }
+    .pdf-node--cover_page p { margin: 0; }
   </style>
 </head>
 <body>
+  {% if node_tree.0.node_type != "cover_page" %}
   <header>
     <h1>{{ paper.name }}</h1>
     <div class="meta">
@@ -37,6 +44,7 @@
       {% endif %}
     </div>
   </header>
+  {% endif %}
 
   <section>
     {% for node in node_tree %}

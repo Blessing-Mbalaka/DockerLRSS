@@ -80,6 +80,8 @@
         <p><strong>Submission Date:</strong> {{ submission_date|date:"F j, Y H:i" }}</p>
     </div>
 
+    {% if learner_cover %}<h3>Learner cover details</h3><table>{% for label, value in learner_cover.items %}<tr><td>{{ label }}</td><td>{{ value }}</td></tr>{% endfor %}</table>{% endif %}
+    {% if writing_notes %}<h3>Writing layer notes</h3>{% for key, note in writing_notes.items %}<p><strong>{{ key }}</strong><br>{{ note|linebreaksbr }}</p>{% endfor %}{% endif %}
     <div class="exam-content">
         <h3>Exam Answers</h3>
         {% for answer in answers %}

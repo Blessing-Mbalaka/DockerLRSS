@@ -7,12 +7,21 @@ import core.views as views
 from core import admin_views as admin_pages
 from core import extractor_views
 from core import annotation_views
+from core import release_views, centre_release_views
 
 from core.create_student import (toggle_student_status, create_student_by_assessment_center)
 from core.auth_views import (forgot_password, reset_password)
 # import core.oldviews as oldviews
     
 urlpatterns = [
+    path('etqa/centre-release/', centre_release_views.centre_release, name='etqa_centre_release'),
+    path('assessment-centre/released-papers/', centre_release_views.released_papers, name='centre_released_papers'),
+    path('assessment-centre/released-papers/<int:batch_id>/download/', centre_release_views.protected_paper, name='centre_protected_paper'),
+    path('etqa/results-release/', release_views.results_release, name='etqa_results_release'),
+    path('etqa/reports/', release_views.reports, name='etqa_reports'),
+    path('etqa/written/', release_views.written, name='etqa_written'),
+    path('etqa/written/<int:submission_id>/<str:kind>/', release_views.written_download, name='etqa_written_download'),
+    path('reports/<int:assessment_id>/<str:kind>/', release_views.report_download, name='workflow_report_download'),
     # Admin URLs
     path('administrator/', views.admin_dashboard, name='admin_dashboard'),
     path('administrator/dashboards/', admin_pages.administrator_analytics_dashboard, name='administrator_dashboards'),
@@ -295,7 +304,7 @@ handler500 = "core.error_views.server_error"
 if settings.DEBUG or getattr(settings, "SERVE_MEDIA", False):
     # static() is a no-op when DEBUG is False, so register the view directly.
     from django.urls import re_path
-    from django.views.static import serve as _serve_media
+    from core.media_access import protected_media as _serve_media
 
     urlpatterns += [
         re_path(
@@ -304,3 +313,12 @@ if settings.DEBUG or getattr(settings, "SERVE_MEDIA", False):
             {"document_root": settings.MEDIA_ROOT},
         ),
     ]
+
+from . import writing_sessions
+urlpatterns += [path("assessments/<int:assessment_id>/writing-session/", writing_sessions.writing_session, name="writing_session"), path("assessment-center/writing-monitor/", writing_sessions.writing_monitor, name="writing_monitor")]
+
+from . import activity_audit
+urlpatterns += [
+    path('it/monitor/', activity_audit.monitor, name='it_monitor'),
+    path('activity/click/', activity_audit.click, name='activity_click'),
+]
