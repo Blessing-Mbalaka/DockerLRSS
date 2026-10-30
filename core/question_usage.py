@@ -56,5 +56,5 @@ def randomization_response(view):
         try:
             return view(*args, **kwargs)
         except OperationalError:
-            return JsonResponse({'ok': False, 'message': 'Another change is being saved. Please retry randomization in a moment.'}, status=409)
+            return JsonResponse({'ok': False, 'message': 'Randomization is temporarily unavailable while another database operation is in progress. Please retry in a moment. If the pool reports missing or exhausted questions, add captured questions for the same module and letter, or upload and capture a new source paper.'}, status=409)
     return wrapped

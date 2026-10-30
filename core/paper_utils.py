@@ -278,7 +278,7 @@ def collect_randomization_pool(module_name: str | None, module_number: str | Non
         available_numbers = {box.question_number for box in pool_list if box.qtype in {'question', 'question_part'}}
         exhausted = sorted(required_numbers - available_numbers)
         if exhausted:
-            raise RandomizationPoolError(f"Set {set_number} has no unused questions for: {', '.join(exhausted)}. Capture alternatives or choose another set number.")
+            raise RandomizationPoolError(f"Set {set_number} has no unused questions for: {', '.join(exhausted)}. Please add captured question alternatives to this pool for the same module and letter. If no more questions are available, upload and capture a new source paper. You may also choose another set number, which permits reuse across sets.")
 
     pool_by_number: Dict[Tuple[str, str], List[ExtractorUserBox]] = defaultdict(list)
     pool_by_parent: Dict[Tuple[str, str], List[ExtractorUserBox]] = defaultdict(list)

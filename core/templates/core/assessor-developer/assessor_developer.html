@@ -1349,12 +1349,14 @@
                             return;
                         }
 
+                        const data = await response.json().catch(() => ({}));
                         if (!response.ok) {
-                            setStatus(`Server error: ${response.status} ${response.statusText}`, 'danger');
+                            const fallback = response.status === 409
+                                ? 'Randomization could not complete because the pool changed or another save is in progress. Please retry. If this set has no unused questions, capture additional questions from papers for the same module and letter, or upload and capture a new source paper before trying again.'
+                                : 'Randomization could not complete. Please retry, or contact support if the problem continues.';
+                            setStatus(data.message || fallback, 'warning');
                             return;
                         }
-
-                        const data = await response.json().catch(() => ({}));
 
                         if (!data.ok) {
                             const message = data.message || 'Failed to build randomized Eisa Tool.';
