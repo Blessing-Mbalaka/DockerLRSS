@@ -63,7 +63,7 @@ class ControlledReleaseTests(TestCase):
         s.external_marks=Decimal('80'); s.save(update_fields=['external_marks'])
         s.refresh_from_db(); self.assertIsNone(s.results_release_at)
 
-    def test_centre_only_gets_its_released_encrypted_pdf(self):
+    def test_centre_only_gets_its_released_plain_pdf(self):
         centre=AssessmentCentre.objects.create(name='Centre', qualification_assigned=self.qualification)
         centre_user=self.user('assessment_center', assessment_centre=centre)
         other=AssessmentCentre.objects.create(name='Other', qualification_assigned=self.qualification)
@@ -75,12 +75,12 @@ class ControlledReleaseTests(TestCase):
         self.client.force_login(self.user('etqa'))
         writer=PdfWriter(); writer.add_blank_page(width=595,height=842); buf=BytesIO(); writer.write(buf)
         with patch('core.centre_release_views.word_for_assessment',return_value=b'word'), patch('core.centre_release_views.convert_word_to_pdf',return_value=buf.getvalue()):
-            self.client.post(reverse('etqa_centre_release'), {'batch_id':batch.pk,'pdf_password':'demo-password','offline_confirmed':'yes'})
+            self.client.post(reverse('etqa_centre_release'), {'batch_id':batch.pk,'offline_confirmed':'yes'})
         batch.refresh_from_db(); self.assertIsNotNone(batch.paper_release_at)
-        self.assertIn('demo-password',mail.outbox[-1].body)
+        self.assertNotIn('demo-password',mail.outbox[-1].body)
         self.assertEqual(mail.outbox[-1].to,[centre_user.email])
-        reader=PdfReader(BytesIO(bytes(batch.locked_paper_pdf))); self.assertTrue(reader.is_encrypted)
-        self.assertEqual(reader.decrypt('wrong'),0); self.assertNotEqual(reader.decrypt('demo-password'),0)
+        reader=PdfReader(BytesIO(bytes(batch.locked_paper_pdf))); self.assertFalse(reader.is_encrypted)
+        self.assertGreater(len(reader.pages), 0)
         self.client.force_login(centre_user); self.assertEqual(self.client.get(url).status_code,200)
         centre_user.assessment_centre=other; centre_user.save()
         self.assertEqual(self.client.get(url).status_code,404)
@@ -91,8 +91,8 @@ class ControlledReleaseTests(TestCase):
         batch=Batch.objects.create(center=centre, qualification=self.qualification, assessment=self.assessment,
             assessment_date=date.today(),submitted_to_center=True)
         self.client.force_login(self.user('etqa'))
-        with patch('core.centre_release_views.word_for_assessment',return_value=b'word'), patch('core.centre_release_views.convert_word_to_pdf',return_value=b'pdf'), patch('core.centre_release_views.lock_pdf',return_value=b'locked'), patch('core.centre_release_views.send_mail',side_effect=RuntimeError('offline')):
-            self.client.post(reverse('etqa_centre_release'),{'batch_id':batch.pk,'pdf_password':'demo-password','offline_confirmed':'yes'})
+        with patch('core.centre_release_views.word_for_assessment',return_value=b'word'), patch('core.centre_release_views.convert_word_to_pdf',return_value=b'pdf'), patch('core.centre_release_views.send_mail',side_effect=RuntimeError('offline')):
+            self.client.post(reverse('etqa_centre_release'),{'batch_id':batch.pk,'offline_confirmed':'yes'})
         batch.refresh_from_db(); self.assertIsNone(batch.paper_release_at); self.assertIsNone(batch.locked_paper_pdf)
 
     def test_report_centre_access_denied_and_etqa_downloads_all_roles(self):

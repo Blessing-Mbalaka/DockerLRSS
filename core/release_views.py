@@ -43,8 +43,8 @@ def results_release(request):
 
 
 REPORT_FIELDS = {'assessor': ('Assessor Developer', 'assessor_report'),
-                 'moderator': ('Moderator', 'moderator_report'),
-                 'qdd': ('QDD', 'qdd_report'), 'qcto': ('QCTO', 'qcto_report')}
+                 'moderator': ('Moderator Developer', 'moderator_report'),
+                 'qdd': ('QDD Reviewer', 'qdd_report'), 'qcto': ('QCTO Validator', 'qcto_report')}
 
 
 @login_required
