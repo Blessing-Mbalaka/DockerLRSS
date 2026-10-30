@@ -292,13 +292,13 @@
         }
 
         .btn-success {
-            background-color: #3a063a;
-            border-color: #3a063a;
+            background-color: #198754;
+            border-color: #198754;
         }
 
         .btn-success:hover {
-            background-color: #8f6620;
-            border-color: #8f6620;
+            background-color: #157347;
+            border-color: #157347;
         }
 
         .btn-outline-warning {
@@ -602,6 +602,14 @@
             }
         }
     </style>
+
+<style>
+/* Workflow action colours remain consistent with their meaning. */
+.workflow-forward, .workflow-forward:disabled { background-color:#198754 !important; border-color:#198754 !important; color:#fff !important; }
+.workflow-forward:hover, .workflow-forward:focus-visible { background-color:#157347 !important; border-color:#146c43 !important; color:#fff !important; }
+.workflow-reject, .workflow-reject:disabled { background-color:#dc3545 !important; border-color:#dc3545 !important; color:#fff !important; }
+.workflow-reject:hover, .workflow-reject:focus-visible { background-color:#bb2d3b !important; border-color:#b02a37 !important; color:#fff !important; }
+</style>
 </head>
 
 <body>
@@ -753,10 +761,10 @@
                                     <!-- <button type="submit" name="action" value="open_pipeline" class="btn btn-outline-warning btn-sm" onclick="this.form.refresh.value='1'">
                                                 <i class="fas fa-sync-alt me-1"></i>Rebuild & Open
                                             </button>
-                                            <button type="submit" name="action" value="forward_etqa" class="btn btn-warning btn-sm text-white">
+                                            <button type="submit" name="action" value="forward_etqa" class="btn btn-warning btn-sm text-white workflow-forward">
                                                 <i class="fas fa-share me-1"></i>Forward ETQA
                                             </button>
-                                            <button type="submit" name="action" value="forward_qcto" class="btn btn-outline-warning btn-sm">
+                                            <button type="submit" name="action" value="forward_qcto" class="btn btn-outline-warning btn-sm workflow-forward">
                                                 <i class="fas fa-share me-1"></i>Forward QCTO
                                             </button> -->
                                     </form>

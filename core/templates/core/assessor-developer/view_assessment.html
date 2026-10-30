@@ -40,6 +40,14 @@
       margin-bottom: 8px;
     }
   </style>
+
+<style>
+/* Workflow action colours remain consistent with their meaning. */
+.workflow-forward, .workflow-forward:disabled { background-color:#198754 !important; border-color:#198754 !important; color:#fff !important; }
+.workflow-forward:hover, .workflow-forward:focus-visible { background-color:#157347 !important; border-color:#146c43 !important; color:#fff !important; }
+.workflow-reject, .workflow-reject:disabled { background-color:#dc3545 !important; border-color:#dc3545 !important; color:#fff !important; }
+.workflow-reject:hover, .workflow-reject:focus-visible { background-color:#bb2d3b !important; border-color:#b02a37 !important; color:#fff !important; }
+</style>
 </head>
 <body>
   <div class="dashboard-container">
@@ -143,7 +151,7 @@
         {% csrf_token %}
         <h4>Add Notes / Forward to Moderator</h4>
         <textarea name="moderator_notes" rows="4" placeholder="Add notes here...">{{ assessment.moderator_notes }}</textarea>
-        <button type="submit" class="gradient-button mt-3">Forward to Moderator</button>
+        <button type="submit" class="gradient-button mt-3 workflow-forward">Forward to Moderator</button>
         <a href="{% url 'assessor_dashboard' %}" class="btn btn-outline-secondary mt-3 ms-2">Back to Dashboard</a>
       </form>
     </div>

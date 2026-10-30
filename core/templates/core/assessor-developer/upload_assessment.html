@@ -67,6 +67,14 @@
       background: linear-gradient(to right, #b45309, #d97706, #f97316);
     }
   </style>
+
+<style>
+/* Workflow action colours remain consistent with their meaning. */
+.workflow-forward, .workflow-forward:disabled { background-color:#198754 !important; border-color:#198754 !important; color:#fff !important; }
+.workflow-forward:hover, .workflow-forward:focus-visible { background-color:#157347 !important; border-color:#146c43 !important; color:#fff !important; }
+.workflow-reject, .workflow-reject:disabled { background-color:#dc3545 !important; border-color:#dc3545 !important; color:#fff !important; }
+.workflow-reject:hover, .workflow-reject:focus-visible { background-color:#bb2d3b !important; border-color:#b02a37 !important; color:#fff !important; }
+</style>
 </head>
 
 <body>
@@ -215,9 +223,9 @@
         <div class="form-section">
           <div class="button-group">
             <button type="submit" name="action" value="save" class="gradient-button">Save Draft</button>
-            <button type="submit" name="action" value="assessor_dev" class="gradient-button secondary">Forward to
+            <button type="submit" name="action" value="assessor_dev" class="gradient-button secondary workflow-forward">Forward to
               Assessor Developer</button>
-            <button type="submit" name="action" value="etqa" class="gradient-button warning">Forward to ETQA</button>
+            <button type="submit" name="action" value="etqa" class="gradient-button warning workflow-forward">Forward to ETQA</button>
           </div>
         </div>
       </form>

@@ -370,6 +370,14 @@
       background: #fff;
     }
   </style>
+
+<style>
+/* Workflow action colours remain consistent with their meaning. */
+.workflow-forward, .workflow-forward:disabled { background-color:#198754 !important; border-color:#198754 !important; color:#fff !important; }
+.workflow-forward:hover, .workflow-forward:focus-visible { background-color:#157347 !important; border-color:#146c43 !important; color:#fff !important; }
+.workflow-reject, .workflow-reject:disabled { background-color:#dc3545 !important; border-color:#dc3545 !important; color:#fff !important; }
+.workflow-reject:hover, .workflow-reject:focus-visible { background-color:#bb2d3b !important; border-color:#b02a37 !important; color:#fff !important; }
+</style>
 </head>
 
 <body>
@@ -630,10 +638,10 @@
         <!-- UPDATED: Forward to Moderator Button with memo check -->
         {% if assessment.status != 'Submitted to Moderator' %}
         {% if can_forward_to_moderator and assessment.assessor_report %}
-        <button type="submit" name="action" value="forward_moderator" class="btn btn-sm btn-warning">Forward to
+        <button type="submit" name="action" value="forward_moderator" class="btn btn-sm btn-warning workflow-forward">Forward to
           Moderator</button>
         {% else %}
-        <button type="button" class="btn btn-sm btn-warning" disabled title="{{ memo_requirement_message }}">
+        <button type="button" class="btn btn-sm btn-warning workflow-forward" disabled title="{{ memo_requirement_message }}">
           Forward to Moderator
         </button>
         <small class="text-muted align-self-center">Upload memo and assessor report first</small>
@@ -642,9 +650,9 @@
         <span class="small text-muted align-self-center">Already forwarded to moderator.</span>
         {% endif %}
 
-        <!-- <button type="submit" name="action" value="forward_etqa" class="btn btn-sm btn-warning text-white">Forward
+        <!-- <button type="submit" name="action" value="forward_etqa" class="btn btn-sm btn-warning text-white workflow-forward">Forward
           ETQA</button> -->
-        <!-- <button type="submit" name="action" value="forward_qcto" class="btn btn-sm btn-outline-warning">Forward
+        <!-- <button type="submit" name="action" value="forward_qcto" class="btn btn-sm btn-outline-warning workflow-forward">Forward
           QCTO</button> -->
         {% if assessment.status != 'Released to students' %}
         <!-- <button type="submit" name="action" value="release_students" class="btn btn-sm btn-success">Release to
